@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SneakerX - Giày Thể Thao & Giày Đá Bóng Chính Hãng</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <!-- THANH CÔNG CỤ DÀNH RIÊNG CHO ADMIN (CHỈ XUẤT HIỆN KHI ĐĂNG NHẬP ADMIN) -->
+    <div id="admin-top-bar" class="admin-top-bar">
+        <div>
+            <span class="admin-badge-tag">👑 ADMIN</span>
+            <span>Đang đăng nhập: <b id="admin-bar-user-name">Quản trị viên</b> (<span style="color: #fdba74;">admin@gmail.com</span>)</span>
+        </div>
+        <div class="admin-bar-actions">
+            <button class="btn-admin-bar" onclick="openAdminProductsModal()">
+                <span>📦</span> Quản Lý Kho & Sản Phẩm (<span id="admin-bar-prod-count">0</span>)
+            </button>
+            <button class="btn-admin-bar" onclick="openAddProductModal()">
+                <span>＋</span> Thêm Giày Mới
+            </button>
+            <button class="btn-admin-bar" onclick="openAdminOrdersModal()">
+                <span>📋</span> Quản Lý Đơn Hàng (<span id="admin-bar-orders-count">0</span>)
+            </button>
+            <button class="btn-admin-bar btn-exit" onclick="logout()">
+                <span>🚪</span> Thoát Admin
+            </button>
+        </div>
+    </div>
+
+    <!-- HEADER / NAVIGATION -->
+    <header id="header">
+        <div class="logo" onclick="showPage('home')">Sneaker<span>X</span></div>
+        <nav class="nav-links">
+            <a href="#" id="nav-home" class="nav-item active" onclick="showPage('home'); return false;">Trang chủ</a>
+            <a href="#" class="nav-item" onclick="filterProducts('Nike'); return false;">Nike</a>
+            <a href="#" class="nav-item" onclick="filterProducts('Adidas'); return false;">Adidas</a>
+            <a href="#" class="nav-item" onclick="filterProducts('Puma'); return false;">Puma</a>
+            <a href="#" class="nav-item" onclick="filterProducts('Giày Đá Banh'); return false;">Giày Đá Banh</a>
+            <a href="#" class="nav-item" onclick="filterProducts('Chạy bộ'); return false;">Chạy bộ</a>
+            <a href="#" class="nav-item" onclick="filterProducts('Giày Bóng Chuyền'); return false;">Giày Bóng Chuyền</a>
+        </nav>
+        <div class="nav-actions">
+            <!-- KHÁCH CHƯA ĐĂNG NHẬP -->
+            <div id="nav-guest">
+                <button class="btn-login" onclick="openAuthModal()">Đăng nhập</button>
+            </div>
+
+            <!-- ĐÃ ĐĂNG NHẬP (USER HOẶC ADMIN) -->
+            <div id="nav-user" class="nav-user-box">
+                <div class="nav-user-avatar" id="nav-user-avatar">A</div>
+                <div class="nav-user-info">
+                    <span class="nav-user-name" id="nav-user-name">Admin</span>
+                    <span class="nav-user-role" id="nav-user-role">Quản trị viên</span>
+                </div>
+                <button class="btn-logout" onclick="logout()" title="Đăng xuất">Đăng xuất</button>
+            </div>
+
+            <!-- GIỎ HÀNG -->
+            <button class="cart-btn" onclick="showPage('cart')" aria-label="Giỏ hàng" title="Xem giỏ hàng">
+                🛒
+                <span class="cart-badge" id="cart-count">0</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- TRANG CHỦ -->
+    <div id="page-home" class="page" style="display: block;">
+        <section class="hero">
+            <div class="shape-circle"></div>
+            <div class="hero-content">
+                <h1>Vượt Qua <span>Giới</span><br>Hạn.</h1>
+                <p>Khám phá bộ sưu tập giày thể thao, giày chạy bộ và giày đá bóng mới nhất từ các thương hiệu hàng đầu thế giới.</p>
+                <div>
+                    <button class="btn btn-primary" onclick="scrollToProducts()">Mua Ngay Hôm Nay</button>
+                </div>
+            </div>
+            <div class="hero-image">
+                <img src="https://images.unsplash.com/photo-1605348532760-6753d2c43329?auto=format&fit=crop&w=800&q=80"
+                    alt="Nike Air Max" style="border-radius: 20px;">
+            </div>
+        </section>
+
+        <section class="products-section" id="products">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Sản Phẩm <span>Nổi Bật</span></h2>
+                    <p style="color: var(--text-muted); font-size: 14px; margin-top: 5px;">
+                        Bộ sưu tập giày thời trang, chạy bộ, đá banh và bóng chuyền chính hãng
+                    </p>
+                </div>
+                <!-- Nút Thao tác dành cho Admin khi đang đăng nhập Admin -->
+                <div id="admin-product-actions" style="display: none;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn-admin-bar" style="background: #2563eb; border: none; padding: 8px 16px; border-radius: 20px;" onclick="openAdminProductsModal()">
+                            <span>📦</span> Quản Lý Kho & Hàng Tồn
+                        </button>
+                        <button class="btn-admin-bar" style="background: #ea580c; border: none; padding: 8px 16px; border-radius: 20px;" onclick="openAddProductModal()">
+                            <span>＋</span> Thêm Sản Phẩm Giày
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- THANH LỌC CÁC DÒNG GIÀY -->
+            <div class="filter-tags" style="margin-bottom: 30px; flex-wrap: wrap;">
+                <button class="active" onclick="filterProducts('all')">Tất cả</button>
+                <button onclick="filterProducts('Thời trang')">Thời trang</button>
+                <button onclick="filterProducts('Chạy bộ')">Chạy bộ</button>
+                <button onclick="filterProducts('Giày Đá Banh')">Giày Đá Banh</button>
+                <button onclick="filterProducts('Giày Bóng Chuyền')">Giày Bóng Chuyền</button>
+        
+            </div>
+
+            <div class="grid" id="product-grid"></div>
+        </section>
+    </div>
+
+    <!-- TRANG GIỎ HÀNG -->
+    <div id="page-cart" class="page" style="display: none; padding: 120px 5% 50px;">
+        <h2 class="section-title" style="margin-bottom: 10px; font-size: 28px;">Giỏ hàng của bạn</h2>
+        <p style="color: var(--text-muted); margin-bottom: 30px;">
+            Kiểm tra lại sản phẩm trong giỏ trước khi tiến hành xác nhận đặt hàng
+        </p>
+
+        <div class="cart-container">
+            <div class="cart-list" id="cart-items-container">
+                <!-- Giỏ hàng sẽ được render ở đây -->
+            </div>
+
+            <div class="cart-summary">
+                <h3 style="margin-bottom: 20px; font-size: 18px;">Tóm tắt giỏ hàng</h3>
+                <div class="summary-row">
+                    <span>Số lượng sản phẩm</span>
+                    <span id="summary-qty">0 sản phẩm</span>
+                </div>
+                <div class="summary-row">
+                    <span>Tạm tính</span>
+                    <span id="summary-subtotal">0 ₫</span>
+                </div>
+                <div class="summary-row">
+                    <span>Phí vận chuyển</span>
+                    <span style="color: #22c55e; font-weight: bold;">MIỄN PHÍ</span>
+                </div>
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #e2e8f0;">
+                <div class="summary-row total">
+                    <span style="font-weight: bold; font-size: 18px;">Tổng thanh toán</span>
+                    <span id="summary-total" style="color: var(--primary); font-size: 24px; font-weight: 900;">0 ₫</span>
+                </div>
+
+                <div style="background: #e0f2fe; color: #0284c7; padding: 10px; border-radius: 8px; font-size: 13px; margin: 20px 0; font-weight: 600;">
+                    🛡️ Chính sách SneakerX: 1 đổi 1 trong 30 ngày nếu lỗi • Bảo hành 12 tháng chính hãng • Hỗ trợ kỹ thuật trọn đời.
+                </div>
+
+                <!-- NÚT TIẾN HÀNH XÁC NHẬN ĐƠN HÀNG (CHECKOUT) -->
+                <button class="btn btn-primary" style="width: 100%; background: #0f172a; box-shadow: none;"
+                    onclick="goToCheckout()">
+                    Tiến hành Xác nhận Đặt hàng →
+                </button>
+                
+                <button onclick="showPage('home')"
+                    style="width:100%; margin-top:10px; padding:10px; font-size:13px; font-weight:600; color:var(--text-muted); text-align:center; background:none; border:none; cursor:pointer;">
+                    ← Tiếp tục mua sắm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRANG XÁC NHẬN ĐƠN HÀNG (CHECKOUT - GIAO DIỆN CHUẨN THEO ẢNH ĐỀ BÀI) -->
+    <div id="page-checkout" class="page" style="display: none;">
+        <div class="checkout-wrapper">
+            <div class="checkout-breadcrumbs">
+                <a href="#" onclick="showPage('home'); return false;">Trang chủ</a> <span>/</span>
+                <a href="#" onclick="showPage('cart'); return false;">Giỏ hàng</a> <span>/</span>
+                <span style="color: var(--black); font-weight: 700;">Xác nhận đơn hàng</span>
+            </div>
+
+            <div class="checkout-layout">
+                <!-- CỘT BÊN TRÁI: FORM 2 BƯỚC THÔNG TIN NHẬN HÀNG -->
+                <div class="checkout-forms">
+                    <!-- BƯỚC 1: THÔNG TIN NGƯỜI NHẬN -->
+                    <div class="checkout-card">
+                        <div class="checkout-step-title">
+                            <span class="checkout-step-num">1</span>
+                            <span>Thông tin người nhận</span>
+                        </div>
+                        <div class="checkout-grid-2">
+                            <div class="checkout-field">
+                                <label>Họ và tên người nhận <span class="req">*</span></label>
+                                <input type="text" id="checkout-name" placeholder="Ví dụ: Nguyễn Văn Bảo" required>
+                            </div>
+                            <div class="checkout-field">
+                                <label>Số điện thoại <span class="req">*</span></label>
+                                <input type="tel" id="checkout-phone" placeholder="Ví dụ: 0901234567" required>
+                            </div>
+                        </div>
+                        <div class="checkout-field" style="margin-bottom: 0;">
+                            <label>Email nhận thông báo</label>
+                            <input type="email" id="checkout-email" placeholder="Ví dụ: bao.sneakerx@gmail.com">
+                            <div class="field-hint">Mã đơn hàng và thông tin xác nhận sẽ được gửi về email này</div>
+                        </div>
+                    </div>
+
+                    <!-- BƯỚC 2: ĐỊA CHỈ NHẬN HÀNG -->
+                    <div class="checkout-card">
+                        <div class="checkout-step-title">
+                            <span class="checkout-step-num">2</span>
+                            <span>Địa chỉ nhận hàng</span>
+                        </div>
+                        <div class="checkout-field">
+                            <label>Địa chỉ cụ thể (Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành) <span class="req">*</span></label>
+                            <textarea id="checkout-address" rows="3" placeholder="Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh" required></textarea>
+                        </div>
+                        <div class="checkout-field" style="margin-bottom: 0;">
+                            <label>Ghi chú đơn hàng (Tùy chọn)</label>
+                            <textarea id="checkout-note" rows="2" placeholder="Ví dụ: Giao hàng vào giờ hành chính, gọi trước 15 phút..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CỘT BÊN PHẢI: KIỂM TRA ĐƠN HÀNG (THEO ĐÚNG ẢNH ĐỀ BÀI) -->
+                <div class="checkout-summary-card">
+                    <h3 class="checkout-summary-title">Kiểm tra đơn hàng (<span id="checkout-item-count">0</span> món)</h3>
+
+                    <!-- Danh sách các món hàng -->
+                    <div class="checkout-items-list" id="checkout-items-list">
+                        <!-- Render các món tự động -->
+                    </div>
+
+                    <div class="checkout-calc-row">
+                        <span>Tạm tính</span>
+                        <span id="checkout-subtotal" style="font-weight: 700; color: var(--black);">0 ₫</span>
+                    </div>
+                    <div class="checkout-calc-row">
+                        <span>Phí vận chuyển</span>
+                        <span style="color: #16a34a; font-weight: 800;">MIỄN PHÍ</span>
+                    </div>
+
+                    <div class="checkout-calc-row total-row">
+                        <span>Tổng thanh toán</span>
+                        <span id="checkout-total">0 ₫</span>
+                    </div>
+
+                    <!-- PHƯƠNG THỨC THANH TOÁN -->
+                    <div class="payment-methods" style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; color: var(--black);">Phương thức thanh toán</h4>
+                        <label class="payment-option" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; cursor: pointer;">
+                            <input type="radio" name="payment_method" value="COD" checked style="width: 18px; height: 18px;">
+                            <span>Thanh toán khi nhận hàng (COD)</span>
+                        </label>
+                        <label class="payment-option" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="radio" name="payment_method" value="QR" style="width: 18px; height: 18px;">
+                            <span>Chuyển khoản QR (SePay)</span>
+                        </label>
+                    </div>
+
+                    <!-- Hộp chính sách SneakerX -->
+                    <div class="checkout-policy-box">
+                        <span style="font-size: 16px;">🛡️</span>
+                        <div><b>Chính sách SneakerX:</b> 1 đổi 1 trong 30 ngày nếu lỗi • Bảo hành 12 tháng chính hãng • Hỗ trợ kỹ thuật trọn đời.</div>
+                    </div>
+
+                    <!-- NÚT XÁC NHẬN ĐẶT HÀNG -->
+                    <button type="button" class="btn-confirm-order" onclick="submitOrder(event)">
+                        ✓ Xác nhận Đặt hàng
+                    </button>
+                    
+                    <button type="button" class="btn-back-to-cart" onclick="showPage('cart')">
+                        ← Quay lại giỏ hàng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL THÊM SẢN PHẨM (DÀNH CHO ADMIN) -->
+    <div class="modal-overlay" id="modal-add-product">
+        <div class="modal-add-product-dialog">
+            <button class="close-btn" onclick="closeAddProductModal()" title="Đóng">✕</button>
+            <div class="modal-add-header">
+                <div class="modal-add-title">
+                    <span>👑</span> Thêm Sản Phẩm Giày Mới (Quyền Quản Trị Viên)
+                </div>
+            </div>
+
+            <!-- CHỌN NHANH CÁC MẪU GIÀY MẪU -->
+            <div class="quick-samples-wrapper">
+                <span class="quick-samples-label">⚡ Gợi ý chọn nhanh mẫu giày (click để tự động điền form):</span>
+                <div class="quick-chips-grid">
+                    <button type="button" class="chip-sample" onclick="selectQuickProduct(0)">⚽ Nike Vapor 15 FG</button>
+                    <button type="button" class="chip-sample" onclick="selectQuickProduct(1)">⚽ Adidas Predator Elite</button>
+                    <button type="button" class="chip-sample" onclick="selectQuickProduct(2)">⚽ Puma Ultra 5 Carbon</button>
+                    <button type="button" class="chip-sample" onclick="selectQuickProduct(3)">🏀 Nike Jordan 1 Retro</button>
+                    <button type="button" class="chip-sample" onclick="selectQuickProduct(4)">🏃 Nike Invincible 3</button>
+                    <button type="button" class="chip-sample" onclick="selectQuickProduct(5)">🏐 Mizuno Wave Momentum</button>
+                </div>
+            </div>
+
+            <form id="form-add-product" onsubmit="saveNewProduct(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Tên Sản Phẩm Giày <span style="color:#ef4444">*</span></label>
+                    <input type="text" id="new-prod-name" placeholder="Ví dụ: Nike Air Zoom Mercurial Vapor 15 FG" required>
+                </div>
+
+                <div class="checkout-grid-2" style="margin-bottom: 15px;">
+                    <div class="form-group">
+                        <label>Thương hiệu (Hãng giày) <span style="color:#ef4444">*</span></label>
+                        <select id="new-prod-brand" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <option value="Nike">Nike</option>
+                            <option value="Adidas">Adidas</option>
+                            <option value="Puma">Puma</option>
+                            <option value="Mizuno">Mizuno</option>
+                            <option value="Asics">Asics</option>
+                            <option value="Khác">Khác</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Dòng giày (Phân loại) <span style="color:#ef4444">*</span></label>
+                        <select id="new-prod-category" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <option value="Giày Đá Banh">Giày Đá Banh</option>
+                            <option value="Chạy bộ">Chạy bộ</option>
+                            <option value="Thời trang">Thời trang</option>
+                            <option value="Giày Bóng Chuyền">Giày Bóng Chuyền</option>
+                            <option value="Giày Bóng Rổ">Giày Bóng Rổ</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="checkout-grid-2" style="margin-bottom: 15px;">
+                    <div class="form-group">
+                        <label>Chi phí khách mua / Giá bán (VNĐ) <span style="color:#ef4444">*</span></label>
+                        <input type="number" id="new-prod-price" placeholder="Ví dụ: 5400000" min="50000" step="10000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Số lượng tồn kho ban đầu (Đôi) <span style="color:#ef4444">*</span></label>
+                        <input type="number" id="new-prod-stock" placeholder="Ví dụ: 20" min="0" value="20" required>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Nhãn nổi bật (Tag)</label>
+                    <select id="new-prod-tag" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <option value="">Không có nhãn</option>
+                        <option value="HOT" selected>HOT</option>
+                        <option value="Mới">Mới</option>
+                        <option value="Bán chạy">Bán chạy</option>
+                        <option value="Giới hạn">Giới hạn</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Link hình ảnh sản phẩm (URL)</label>
+                    <input type="url" id="new-prod-image" placeholder="https://..." oninput="previewProductImage()">
+                    <div class="image-preview-box">
+                        <img id="new-prod-preview" src="" alt="Xem trước ảnh" style="display: none;">
+                        <div id="new-prod-preview-ph" class="image-preview-placeholder">
+                            <span style="font-size: 24px;">🖼️</span>
+                            <span>Xem trước hình ảnh sản phẩm tại đây</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Mô tả ngắn về sản phẩm</label>
+                    <textarea id="new-prod-desc" rows="2" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: var(--font-family);" placeholder="Mô tả công nghệ đệm, chất liệu sợi dệt, độ bám sân..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn-add-product-outline" onclick="closeAddProductModal()">Hủy bỏ</button>
+                    <button type="submit" class="btn-add-product">✓ Lưu Sản Phẩm Giày</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL QUẢN LÝ ĐƠN HÀNG DÀNH CHO ADMIN -->
+    <div class="modal-overlay" id="modal-admin-orders">
+        <div class="modal-admin-orders-dialog">
+            <button class="close-btn" onclick="closeAdminOrdersModal()" title="Đóng">✕</button>
+            <div class="modal-add-header">
+                <div class="modal-add-title">
+                    <span>📋</span> Quản Lý Đơn Hàng (Quyền Admin)
+                </div>
+            </div>
+
+            <!-- THỐNG KÊ NHANH ĐƠN HÀNG -->
+            <div class="admin-stats-grid" style="margin-bottom: 16px;" id="orders-stats-row">
+                <div class="admin-stat-card">
+                    <div class="stat-icon-wrap" style="background: #eff6ff; color: #2563eb;">📋</div>
+                    <div class="stat-meta">
+                        <span class="stat-label">Tổng Đơn Hàng</span>
+                        <b class="stat-value" id="stat-orders-total">0</b>
+                        <span class="stat-sub">Đơn đã đặt</span>
+                    </div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="stat-icon-wrap" style="background: #fff7ed; color: #ea580c;">⏳</div>
+                    <div class="stat-meta">
+                        <span class="stat-label">Chờ Xác Nhận</span>
+                        <b class="stat-value" id="stat-orders-pending">0</b>
+                        <span class="stat-sub">Cần xử lý</span>
+                    </div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="stat-icon-wrap" style="background: #ecfdf5; color: #16a34a;">✅</div>
+                    <div class="stat-meta">
+                        <span class="stat-label">Đã Hoàn Thành</span>
+                        <b class="stat-value" id="stat-orders-done">0</b>
+                        <span class="stat-sub">Giao thành công</span>
+                    </div>
+                </div>
+                <div class="admin-stat-card highlight">
+                    <div class="stat-icon-wrap" style="background: #fdf2f8; color: #db2777;">💰</div>
+                    <div class="stat-meta">
+                        <span class="stat-label">Tổng Doanh Thu</span>
+                        <b class="stat-value" id="stat-orders-revenue">0 ₫</b>
+                        <span class="stat-sub">Chi phí khách mua</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <p style="color: var(--text-muted); font-size: 14px;">Danh sách tất cả đơn hàng đã được khách hàng đặt tại SneakerX</p>
+                <button class="btn-logout" onclick="clearAllOrders()" style="color: #ef4444; border-color: #fca5a5;">Xóa hết đơn hàng test</button>
+            </div>
+
+            <div class="orders-table-wrapper">
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Mã Đơn</th>
+                            <th>Khách Hàng</th>
+                            <th>SĐT / Địa Chỉ</th>
+                            <th>Sản Phẩm Đặt</th>
+                            <th>Tổng Tiền</th>
+                            <th>Trạng Thái</th>
+                            <th>Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-orders-tbody">
+                        <!-- Danh sách đơn hàng được render động -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL QUẢN LÝ SẢN PHẨM & KHO HÀNG DÀNH CHO ADMIN -->
+    <div class="modal-overlay" id="modal-admin-products">
+        <div class="modal-admin-products-dialog">
+            <button class="close-btn" onclick="closeAdminProductsModal()" title="Đóng">✕</button>
+            <div class="modal-add-header" style="margin-bottom: 16px;">
+                <div class="modal-add-title">
+                    <span>📦</span> Quản Lý Sản Phẩm & Hàng Tồn Kho (Admin)
+                </div>
+            </div>
+
+            <!-- DASHBOARD THỐNG KÊ KHO HÀNG & DOANH THU KHÁCH MUA -->
+            <div class="admin-stats-grid">
+                <div class="admin-stat-card">
+                    <div class="stat-icon-wrap" style="background: #eff6ff; color: #2563eb;">👟</div>
+                    <div class="stat-meta">
+                        <span class="stat-label">Tổng Loại Sản Phẩm</span>
+                        <b class="stat-value" id="stat-total-skus">0</b>
+                        <span class="stat-sub">Mẫu mã đang bán</span>
+                    </div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="stat-icon-wrap" style="background: #ecfdf5; color: #059669;">📦</div>
+                    <div class="stat-meta">
+                        <span class="stat-label">Tổng Hàng Tồn Kho</span>
+                        <b class="stat-value" id="stat-total-stock">0</b>
+                        <span class="stat-sub">Đôi giày trong kho</span>
+                    </div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="stat-icon-wrap" style="background: #fff7ed; color: #ea580c;">⚠️</div>
+                    <div class="stat-meta">
+                        <span class="stat-label">Cảnh Báo Sắp/Hết Hàng</span>
+                        <b class="stat-value" id="stat-low-stock">0</b>
+                        <span class="stat-sub">Cần nhập kho gấp</span>
+                    </div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="stat-icon-wrap" style="background: #fdf2f8; color: #db2777;">💰</div>
+                    <div class="stat-meta">
+                        <span class="stat-label">Tổng Giá Trị Kho Hàng</span>
+                        <b class="stat-value" id="stat-stock-value">0 ₫</b>
+                        <span class="stat-sub">Vốn hàng hóa tồn</span>
+                    </div>
+                </div>
+                <div class="admin-stat-card highlight">
+                    <div class="stat-icon-wrap" style="background: #fef2f2; color: #dc2626;">🛍️</div>
+                    <div class="stat-meta">
+                        <span class="stat-label">Chi Phí Khách Đã Mua</span>
+                        <b class="stat-value" id="stat-customer-spending">0 ₫</b>
+                        <span class="stat-sub">Doanh thu bán ra</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- THANH TÌM KIẾM, LỌC & THAO TÁC NHANH -->
+            <div class="admin-inventory-toolbar">
+                <div class="admin-toolbar-left">
+                    <div class="admin-search-box">
+                        <span>🔍</span>
+                        <input type="text" id="admin-prod-search" placeholder="Tìm tên giày, mã, phân loại..." oninput="renderAdminProductsTable()">
+                    </div>
+                    <select id="admin-filter-brand" class="admin-select" onchange="renderAdminProductsTable()">
+                        <option value="all">Tất cả thương hiệu</option>
+                        <option value="Nike">Nike</option>
+                        <option value="Adidas">Adidas</option>
+                        <option value="Puma">Puma</option>
+                        <option value="Mizuno">Mizuno</option>
+                        <option value="Asics">Asics</option>
+                    </select>
+                    <select id="admin-filter-stock" class="admin-select" onchange="renderAdminProductsTable()">
+                        <option value="all">Tất cả trạng thái kho</option>
+                        <option value="in_stock">Còn nhiều (> 5 đôi)</option>
+                        <option value="low_stock">Sắp hết kho (1 - 5 đôi)</option>
+                        <option value="out_of_stock">Đã hết hàng (0 đôi)</option>
+                    </select>
+                </div>
+                <div class="admin-toolbar-right">
+                    <button type="button" class="btn-admin-action" onclick="openAddProductModal()">
+                        <span>＋</span> Thêm Sản Phẩm
+                    </button>
+                </div>
+            </div>
+
+            <!-- BẢNG DANH SÁCH SẢN PHẨM & TỒN KHO -->
+            <div class="orders-table-wrapper" style="margin-top: 15px;">
+                <table class="orders-table admin-products-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">Ảnh</th>
+                            <th>Tên Sản Phẩm Giày</th>
+                            <th>Thương Hiệu / Dòng</th>
+                            <th>Chi Phí Khách Mua (Giá Bán)</th>
+                            <th style="min-width: 190px;">Số Lượng Tồn Kho (Kho Cửa Hàng)</th>
+                            <th>Khách Đã Mua</th>
+                            <th style="width: 140px; text-align: center;">Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-products-tbody">
+                        <!-- Danh sách sản phẩm được render động -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SỬA SẢN PHẨM & TỒN KHO (CHỈ DÀNH CHO ADMIN) -->
+    <div class="modal-overlay" id="modal-edit-product">
+        <div class="modal-add-product-dialog">
+            <button class="close-btn" onclick="closeEditProductModal()" title="Đóng">✕</button>
+            <div class="modal-add-header">
+                <div class="modal-add-title">
+                    <span>✏️</span> Chỉnh Sửa Sản Phẩm & Hàng Tồn Kho (Admin)
+                </div>
+            </div>
+
+            <form id="form-edit-product" onsubmit="saveEditProduct(event)">
+                <input type="hidden" id="edit-prod-id">
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Tên Sản Phẩm Giày <span style="color:#ef4444">*</span></label>
+                    <input type="text" id="edit-prod-name" placeholder="Ví dụ: Nike Air Zoom Mercurial Vapor 15 FG" required>
+                </div>
+
+                <div class="checkout-grid-2" style="margin-bottom: 15px;">
+                    <div class="form-group">
+                        <label>Thương hiệu (Hãng giày) <span style="color:#ef4444">*</span></label>
+                        <select id="edit-prod-brand" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <option value="Nike">Nike</option>
+                            <option value="Adidas">Adidas</option>
+                            <option value="Puma">Puma</option>
+                            <option value="Mizuno">Mizuno</option>
+                            <option value="Asics">Asics</option>
+                            <option value="Khác">Khác</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Dòng giày (Phân loại) <span style="color:#ef4444">*</span></label>
+                        <select id="edit-prod-category" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <option value="Giày Đá Banh">Giày Đá Banh</option>
+                            <option value="Chạy bộ">Chạy bộ</option>
+                            <option value="Thời trang">Thời trang</option>
+                            <option value="Giày Bóng Chuyền">Giày Bóng Chuyền</option>
+                            <option value="Giày Bóng Rổ">Giày Bóng Rổ</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="checkout-grid-2" style="margin-bottom: 15px;">
+                    <div class="form-group">
+                        <label>Chi phí khách mua / Giá bán (VNĐ) <span style="color:#ef4444">*</span></label>
+                        <input type="number" id="edit-prod-price" placeholder="Ví dụ: 5400000" min="50000" step="10000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Số lượng hàng tồn kho cửa hàng (Đôi) <span style="color:#ef4444">*</span></label>
+                        <input type="number" id="edit-prod-stock" placeholder="Ví dụ: 25" min="0" required>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Nhãn nổi bật (Tag)</label>
+                    <select id="edit-prod-tag" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <option value="">Không có nhãn</option>
+                        <option value="HOT">HOT</option>
+                        <option value="Mới">Mới</option>
+                        <option value="Bán chạy">Bán chạy</option>
+                        <option value="Giới hạn">Giới hạn</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Link hình ảnh sản phẩm (URL)</label>
+                    <input type="url" id="edit-prod-image" placeholder="https://..." oninput="previewEditProductImage()">
+                    <div class="image-preview-box">
+                        <img id="edit-prod-preview" src="" alt="Xem trước ảnh" style="display: none;">
+                        <div id="edit-prod-preview-ph" class="image-preview-placeholder">
+                            <span style="font-size: 24px;">🖼️</span>
+                            <span>Xem trước hình ảnh sản phẩm tại đây</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Mô tả ngắn về sản phẩm</label>
+                    <textarea id="edit-prod-desc" rows="2" style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-family: var(--font-family);" placeholder="Mô tả công nghệ đệm, chất liệu sợi dệt, độ bám sân..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn-add-product-outline" onclick="closeEditProductModal()">Hủy bỏ</button>
+                    <button type="submit" class="btn-add-product" style="background: #2563eb;">✓ Cập Nhật Sản Phẩm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL ĐẶT HÀNG THÀNH CÔNG -->
+    <div class="modal-overlay" id="modal-order-success">
+        <div class="success-modal-content">
+            <div class="success-icon-badge">✓</div>
+            <h2 style="font-size: 24px; font-weight: 900; color: var(--black); margin-bottom: 8px;">ĐẶT HÀNG THÀNH CÔNG!</h2>
+            <p style="color: var(--text-muted); font-size: 14px;">Đơn hàng của bạn đã được ghi nhận trên hệ thống SneakerX.</p>
+
+            <div class="order-info-card">
+                <div class="order-info-row">
+                    <span>Mã đơn hàng:</span>
+                    <span id="success-order-id" style="color: var(--primary);">#SX-123456</span>
+                </div>
+                <div class="order-info-row">
+                    <span>Thời gian đặt:</span>
+                    <span id="success-order-date">...</span>
+                </div>
+                <div class="order-info-row">
+                    <span>Người nhận:</span>
+                    <span id="success-customer-name">...</span>
+                </div>
+                <div class="order-info-row">
+                    <span>Số điện thoại:</span>
+                    <span id="success-customer-phone">...</span>
+                </div>
+                <div class="order-info-row">
+                    <span>Địa chỉ giao hàng:</span>
+                    <span id="success-delivery-address" style="text-align: right; max-width: 240px;">...</span>
+                </div>
+                <div class="order-info-row">
+                    <span>Hình thức:</span>
+                    <span id="success-payment-method" style="color: #16a34a;">Thanh toán khi nhận hàng (COD)</span>
+                </div>
+
+                <!-- Khu vực hiển thị mã QR SePay -->
+                <div id="sepay-qr-container" style="display: none; text-align: center; margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;">
+                    <div id="qr-content-wrapper">
+                        <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 10px;">Quét mã QR để thanh toán</h3>
+                        <img id="sepay-qr-img" src="" alt="Mã QR Thanh Toán" style="max-width: 200px; height: auto; border-radius: 8px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <p style="font-size: 13px; color: #64748b; margin-top: 10px;">Mở ứng dụng ngân hàng và quét mã để thanh toán tự động.</p>
+                        <button type="button" onclick="testQRPayment()" style="margin-top: 15px; background: #2563eb; color: #fff; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; width: 100%; transition: background 0.2s;">(Nút Test) Mô phỏng Khách đã chuyển khoản</button>
+                    </div>
+
+                    <div id="qr-success-wrapper" style="display: none; padding: 20px 0; color: #16a34a;">
+                        <div style="font-size: 40px; margin-bottom: 10px;">✅</div>
+                        <h3 style="font-size: 18px; font-weight: 700;">Đã nhận được thanh toán!</h3>
+                        <p style="font-size: 13px; color: #64748b; margin-top: 5px;">Hệ thống SePay vừa báo có tiền. Đơn hàng đã được chuyển sang trạng thái "Đã thanh toán".</p>
+                    </div>
+                </div>
+                <div class="order-info-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
+                    <span style="font-weight: 700; color: var(--black);">Tổng thanh toán:</span>
+                    <span id="success-total-price" style="font-size: 18px; color: #dc2626; font-weight: 900;">0 ₫</span>
+                </div>
+            </div>
+
+            <div style="background: #f1f5f9; padding: 12px; border-radius: 10px; font-size: 13px; color: #475569; margin-bottom: 20px;">
+                📦 Nhân viên CSKH sẽ liên hệ xác nhận đơn trong vòng <b>15 phút</b>. Dự kiến giao hàng sau <b>2 - 3 ngày</b>.
+            </div>
+
+            <button class="btn btn-primary" style="width: 100%;" onclick="closeOrderSuccessModal()">
+                Tiếp Tục Mua Sắm
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL ĐĂNG NHẬP / ĐĂNG KÍ -->
+    <div class="modal-overlay" id="auth-modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeAuthModal()">✕</button>
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Đăng nhập</button>
+                <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Đăng ký</button>
+            </div>
+
+            <!-- Form Đăng Nhập -->
+            <form id="login-form" class="auth-form active" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="login-email" required placeholder="Nhập email...">
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu</label>
+                    <input type="password" id="login-password" required placeholder="Nhập mật khẩu...">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Đăng Nhập</button>
+            </form>
+
+            <!-- Form Đăng Ký -->
+            <form id="register-form" class="auth-form" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label>Họ và Tên</label>
+                    <input type="text" id="reg-fullname" required placeholder="Nhập họ tên...">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="reg-email" required placeholder="Nhập email...">
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu</label>
+                    <input type="password" id="reg-password" required placeholder="Tạo mật khẩu...">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Đăng Ký</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-col">
+                <h3 class="logo" style="color:white; font-size: 24px;">Sneaker<span style="color:var(--primary)">X</span></h3>
+                <p style="margin-top: 15px;">Thương hiệu hàng đầu về giày thể thao, giày chạy bộ và giày đá bóng chính hãng.</p>
+            </div>
+            <div class="footer-col">
+                <h3>Về chúng tôi</h3>
+                <ul>
+                    <li><a href="#" onclick="showPage('home'); return false;">Giới thiệu SneakerX</a></li>
+                    <li><a href="#">Hệ thống cửa hàng</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h3>Hỗ trợ</h3>
+                <ul>
+                    <li><a href="#">Chính sách đổi trả 30 ngày</a></li>
+                    <li><a href="#">Bảo hành 12 tháng</a></li>
+                    <li><a href="#" onclick="goToCheckout(); return false;">Xác nhận đơn hàng (COD)</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            © 2026 SneakerX Store. Bản quyền thuộc về đồ án thương mại điện tử.
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+
+</html>
