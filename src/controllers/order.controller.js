@@ -55,7 +55,7 @@ export const createOrderController = async (req, res) => {
         } else {
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
-                if (!item.product_id || isNaN(parseInt(item.product_id, 10))) {
+                if (!item.product_id || String(item.product_id).trim() === '') {
                     errors[`items_${i}_product_id`] = `Sản phẩm thứ ${i + 1} không có ID hợp lệ.`;
                 }
                 if (!item.quantity || parseInt(item.quantity, 10) < 1) {

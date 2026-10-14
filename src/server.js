@@ -17,6 +17,8 @@ import voucherRoutes     from './routes/voucher.route.js';
 import adminRoutes       from './routes/admin.route.js';
 import userRoutes       from './routes/user.route.js';
 
+import { connectDB } from './config/db.js';
+
 dotenv.config();
 
 const app  = express();
@@ -61,7 +63,8 @@ app.get('*', (req, res) => {
 // ============================================================
 //  KHỞI ĐỘNG SERVER
 // ============================================================
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`\n🚀 Server đang chạy tại: http://localhost:${PORT}`);
-    console.log(`📋 Môi trường: ${process.env.NODE_ENV || 'development'}\n`);
+    console.log(`📋 Môi trường: ${process.env.NODE_ENV || 'development'}`);
+    await connectDB();
 });

@@ -1,18 +1,21 @@
 // ============================================================
 //  src/controllers/voucher.controller.js
-//  Quản lý khuyến mãi, voucher giảm giá
+//  Quản lý khuyến mãi, voucher giảm giá (MongoDB / Mongoose)
 // ============================================================
 
-import pool from '../config/db.js';
+import mongoose from 'mongoose';
+import Voucher from '../models/voucher.model.js';
 
-// Lấy danh sách voucher
+// -----------------------------------------------------------
+//  Lấy danh sách voucher
+// -----------------------------------------------------------
 export const getAllVouchersController = async (req, res) => {
     try {
-        const result = await pool.query(`SELECT * FROM vouchers ORDER BY created_at DESC`);
+        const vouchers = await Voucher.find().sort({ created_at: -1 });
         return res.status(200).json({
             success: true,
-            total: result.rows.length,
-            data: result.rows,
+            total: vouchers.length,
+            data: vouchers,
         });
     } catch (err) {
         console.error('❌ Lỗi getAllVouchersController:', err);
@@ -20,7 +23,9 @@ export const getAllVouchersController = async (req, res) => {
     }
 };
 
-// Tạo voucher mới (Admin)
+// -----------------------------------------------------------
+//  Tạo voucher mới (Admin)
+// -----------------------------------------------------------
 export const createVoucherController = async (req, res) => {
     try {
         const {
@@ -31,7 +36,7 @@ export const createVoucherController = async (req, res) => {
             min_order_amount,
             max_discount,
             usage_limit,
-            expires_at
+            expires_at,
         } = req.body;
 
         if (!code || !title) {
@@ -41,50 +46,56 @@ export const createVoucherController = async (req, res) => {
             });
         }
 
-        const result = await pool.query(
-            `INSERT INTO vouchers (code, title, discount_percent, discount_amount, min_order_amount, max_discount, usage_limit, expires_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             RETURNING *`,
-            [
-                code.trim().toUpperCase(),
-                title.trim(),
-                parseInt(discount_percent) || 0,
-                parseFloat(discount_amount) || 0,
-                parseFloat(min_order_amount) || 0,
-                parseFloat(max_discount) || 0,
-                parseInt(usage_limit) || 100,
-                expires_at || null
-            ]
-        );
+        const cleanCode = code.trim().toUpperCase();
+
+        const existing = await Voucher.findOne({ code: cleanCode });
+        if (existing) {
+            return res.status(400).json({ success: false, message: 'Mã voucher này đã tồn tại trong hệ thống.' });
+        }
+
+        const newVoucher = await Voucher.create({
+            code: cleanCode,
+            title: title.trim(),
+            discount_percent: parseInt(discount_percent, 10) || 0,
+            discount_amount: parseFloat(discount_amount) || 0,
+            min_order_amount: parseFloat(min_order_amount) || 0,
+            max_discount: parseFloat(max_discount) || 0,
+            usage_limit: parseInt(usage_limit, 10) || 100,
+            expires_at: expires_at ? new Date(expires_at) : null,
+        });
 
         return res.status(201).json({
             success: true,
             message: 'Tạo mã voucher khuyến mãi thành công!',
-            data: result.rows[0],
+            data: newVoucher,
         });
     } catch (err) {
-        if (err.code === '23505') { // duplicate key
-            return res.status(400).json({ success: false, message: 'Mã voucher này đã tồn tại trong hệ thống.' });
-        }
         console.error('❌ Lỗi createVoucherController:', err);
         return res.status(500).json({ success: false, message: 'Lỗi server khi tạo voucher.' });
     }
 };
 
-// Xóa voucher (Admin)
+// -----------------------------------------------------------
+//  Xóa voucher (Admin)
+// -----------------------------------------------------------
 export const deleteVoucherController = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await pool.query(`DELETE FROM vouchers WHERE id = $1 RETURNING *`, [id]);
 
-        if (result.rows.length === 0) {
+        const filter = mongoose.Types.ObjectId.isValid(id)
+            ? { _id: id }
+            : { $or: [{ _id: id }, { id }] };
+
+        const deleted = await Voucher.findOneAndDelete(filter);
+
+        if (!deleted) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy voucher để xóa.' });
         }
 
         return res.status(200).json({
             success: true,
             message: 'Đã xóa mã voucher thành công!',
-            data: result.rows[0],
+            data: deleted,
         });
     } catch (err) {
         console.error('❌ Lỗi deleteVoucherController:', err);
@@ -92,7 +103,9 @@ export const deleteVoucherController = async (req, res) => {
     }
 };
 
-// Áp dụng voucher khi thanh toán
+// -----------------------------------------------------------
+//  Áp dụng voucher khi thanh toán
+// -----------------------------------------------------------
 export const applyVoucherController = async (req, res) => {
     try {
         const { code, order_amount } = req.body;
@@ -100,21 +113,25 @@ export const applyVoucherController = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Thiếu mã voucher hoặc giá trị đơn hàng.' });
         }
 
-        const result = await pool.query(
-            `SELECT * FROM vouchers WHERE code = $1 AND is_active = true`,
-            [code.trim().toUpperCase()]
-        );
+        const voucher = await Voucher.findOne({
+            code: code.trim().toUpperCase(),
+            is_active: true,
+        });
 
-        const voucher = result.rows[0];
         if (!voucher) {
             return res.status(404).json({ success: false, message: 'Mã giảm giá không tồn tại hoặc đã hết hạn.' });
+        }
+
+        // Kiểm tra hạn sử dụng nếu có
+        if (voucher.expires_at && new Date() > new Date(voucher.expires_at)) {
+            return res.status(400).json({ success: false, message: 'Mã giảm giá này đã hết hạn sử dụng.' });
         }
 
         const amount = parseFloat(order_amount);
         if (voucher.min_order_amount && amount < parseFloat(voucher.min_order_amount)) {
             return res.status(400).json({
                 success: false,
-                message: `Đơn hàng tối thiểu ${new Intl.NumberFormat('vi-VN').format(voucher.min_order_amount)}đ mới có thể dùng voucher này.`
+                message: `Đơn hàng tối thiểu ${new Intl.NumberFormat('vi-VN').format(voucher.min_order_amount)}đ mới có thể dùng voucher này.`,
             });
         }
 
@@ -135,8 +152,8 @@ export const applyVoucherController = async (req, res) => {
                 code: voucher.code,
                 title: voucher.title,
                 discount: Math.min(discount, amount),
-                final_amount: Math.max(0, amount - discount)
-            }
+                final_amount: Math.max(0, amount - discount),
+            },
         });
     } catch (err) {
         console.error('❌ Lỗi applyVoucherController:', err);

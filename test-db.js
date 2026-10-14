@@ -1,28 +1,23 @@
-import pg from 'pg';
+import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const { Pool } = pg;
-const pool = new Pool({
-    host:     process.env.DB_HOST,
-    port:     process.env.DB_PORT,
-    database: process.env.DB_NAME,
-    user:     process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-});
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/phi_mobile_shop';
 
 async function testDB() {
     try {
-        const client = await pool.connect();
-        console.log("✅ Đăng nhập Database thành công!");
-        
-        const res = await client.query('SELECT * FROM products');
-        console.log(`✅ Bảng products tồn tại. Đang có ${res.rowCount} sản phẩm.`);
-        client.release();
+        console.log(`🔌 Đang kết nối thử tới MongoDB: ${MONGODB_URI} ...`);
+        await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+        console.log("✅ Kết nối MongoDB thành công!");
+
+        const collections = await mongoose.connection.db.listCollections().toArray();
+        console.log(`✅ Database hiện có ${collections.length} collections:`, collections.map(c => c.name).join(', ') || '(trống)');
     } catch (err) {
-        console.error("❌ Lỗi DB: ", err.message);
+        console.error("❌ Lỗi kết nối MongoDB:", err.message);
+        console.log("👉 Hướng dẫn: Đảm bảo phần mềm MongoDB (MongoDB Compass / MongoDB Community Server) đang chạy trên máy tính của bạn.");
     } finally {
-        pool.end();
+        await mongoose.disconnect();
     }
 }
+
 testDB();

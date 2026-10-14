@@ -1,35 +1,38 @@
-﻿// ============================================================
+// ============================================================
 //  src/controllers/user.controller.js
-//  Quản lý trang cá nhân (Profile), Đổi mật khẩu, Đổi Email
-//  và Hộp thư thông báo (Notifications & Admin Replies)
+//  Quản lý trang cá nhân, Đổi mật khẩu, Hộp thư thông báo (MongoDB)
 // ============================================================
 
 import bcrypt from 'bcryptjs';
-import pool from '../config/db.js';
+import mongoose from 'mongoose';
+import User from '../models/user.model.js';
+import UserNotification from '../models/notification.model.js';
+import SupportContact from '../models/support.model.js';
 import {
     sanitizeString,
     isValidEmail,
     isValidVNPhone,
     normalizePhone,
-    isValidFullName
+    isValidFullName,
 } from '../utils/validator.js';
+
+// Helper tìm user theo ID (ObjectId hoặc custom ID)
+const findUserById = async (id) => {
+    if (mongoose.Types.ObjectId.isValid(id)) {
+        return await User.findById(id);
+    }
+    return await User.findOne({ $or: [{ _id: id }, { id }] });
+};
 
 // -----------------------------------------------------------
 // 1. GET /api/user/profile
-// Lấy thông tin cá nhân của người dùng đang đăng nhập
 // -----------------------------------------------------------
 export const getProfileController = async (req, res) => {
     try {
         const userId = req.user.id;
+        const user = await findUserById(userId);
 
-        const result = await pool.query(
-            `SELECT id, email, full_name, phone, address, role, created_at, updated_at
-             FROM users
-             WHERE id = $1`,
-            [userId]
-        );
-
-        if (result.rows.length === 0) {
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy người dùng.',
@@ -38,7 +41,16 @@ export const getProfileController = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            data: result.rows[0],
+            data: {
+                id: user._id.toString(),
+                email: user.email,
+                full_name: user.full_name,
+                phone: user.phone,
+                address: user.address,
+                role: user.role,
+                created_at: user.created_at,
+                updated_at: user.updated_at,
+            },
         });
     } catch (err) {
         console.error('❌ Lỗi getProfileController:', err);
@@ -51,7 +63,6 @@ export const getProfileController = async (req, res) => {
 
 // -----------------------------------------------------------
 // 2. PUT /api/user/profile
-// Cập nhật thông tin cá nhân & Đổi email (Gmail)
 // -----------------------------------------------------------
 export const updateProfileController = async (req, res) => {
     try {
@@ -65,21 +76,18 @@ export const updateProfileController = async (req, res) => {
 
         const errors = {};
 
-        // Validate Họ và tên
         if (!full_name) {
             errors.full_name = 'Họ và tên không được để trống.';
         } else if (!isValidFullName(full_name)) {
             errors.full_name = 'Họ và tên không hợp lệ (tối thiểu 2 từ, chỉ chứa chữ cái tiếng Việt).';
         }
 
-        // Validate Email (hỗ trợ kiểm tra định dạng Gmail/Email)
         if (!email) {
             errors.email = 'Email không được để trống.';
         } else if (!isValidEmail(email)) {
             errors.email = 'Email không đúng định dạng chuẩn (ví dụ: nguyenvanan@gmail.com).';
         }
 
-        // Validate Phone (nếu có nhập)
         let cleanPhone = null;
         if (rawPhone) {
             if (!isValidVNPhone(rawPhone)) {
@@ -97,12 +105,13 @@ export const updateProfileController = async (req, res) => {
             });
         }
 
-        // Kiểm tra xem email mới có bị trùng với tài khoản khác không
-        const checkEmail = await pool.query(
-            'SELECT id FROM users WHERE email = $1 AND id <> $2',
-            [email, userId]
-        );
-        if (checkEmail.rows.length > 0) {
+        // Kiểm tra xem email mới có bị trùng tài khoản khác không
+        const checkEmail = await User.findOne({
+            email,
+            _id: { $ne: mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId },
+        });
+
+        if (checkEmail) {
             return res.status(409).json({
                 success: false,
                 message: 'Email này đã được sử dụng bởi một tài khoản khác trong hệ thống.',
@@ -110,23 +119,34 @@ export const updateProfileController = async (req, res) => {
             });
         }
 
-        // Tiến hành cập nhật
-        const updateResult = await pool.query(
-            `UPDATE users
-             SET full_name = $1,
-                 email = $2,
-                 phone = $3,
-                 address = $4,
-                 updated_at = NOW()
-             WHERE id = $5
-             RETURNING id, email, full_name, phone, address, role, created_at, updated_at`,
-            [full_name, email, cleanPhone, address, userId]
+        const filter = mongoose.Types.ObjectId.isValid(userId) ? { _id: userId } : { $or: [{ _id: userId }, { id: userId }] };
+
+        const updatedUser = await User.findOneAndUpdate(
+            filter,
+            {
+                $set: {
+                    full_name,
+                    email,
+                    phone: cleanPhone,
+                    address,
+                },
+            },
+            { new: true }
         );
 
         return res.status(200).json({
             success: true,
             message: 'Cập nhật thông tin cá nhân thành công!',
-            data: updateResult.rows[0],
+            data: {
+                id: updatedUser._id.toString(),
+                email: updatedUser.email,
+                full_name: updatedUser.full_name,
+                phone: updatedUser.phone,
+                address: updatedUser.address,
+                role: updatedUser.role,
+                created_at: updatedUser.created_at,
+                updated_at: updatedUser.updated_at,
+            },
         });
     } catch (err) {
         console.error('❌ Lỗi updateProfileController:', err);
@@ -139,7 +159,6 @@ export const updateProfileController = async (req, res) => {
 
 // -----------------------------------------------------------
 // 3. PUT /api/user/change-password
-// Đổi mật khẩu
 // -----------------------------------------------------------
 export const changePasswordController = async (req, res) => {
     try {
@@ -169,13 +188,12 @@ export const changePasswordController = async (req, res) => {
             });
         }
 
-        // Lấy password_hash hiện tại của user từ DB
-        const userRes = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
-        if (userRes.rows.length === 0) {
+        const user = await findUserById(userId);
+        if (!user) {
             return res.status(404).json({ success: false, message: 'Người dùng không tồn tại.' });
         }
 
-        const isMatch = await bcrypt.compare(old_password, userRes.rows[0].password_hash);
+        const isMatch = await bcrypt.compare(old_password, user.password_hash);
         if (!isMatch) {
             return res.status(400).json({
                 success: false,
@@ -184,26 +202,16 @@ export const changePasswordController = async (req, res) => {
             });
         }
 
-        // Băm mật khẩu mới bằng bcrypt (salt rounds = 10)
         const newHash = await bcrypt.hash(new_password, 10);
+        user.password_hash = newHash;
+        await user.save();
 
-        await pool.query(
-            `UPDATE users
-             SET password_hash = $1, updated_at = NOW()
-             WHERE id = $2`,
-            [newHash, userId]
-        );
-
-        // Tạo thông báo vào Hộp thư thông báo
-        await pool.query(
-            `INSERT INTO user_notifications (user_id, title, message, type)
-             VALUES ($1, $2, $3, 'system')`,
-            [
-                userId,
-                'Bảo mật: Đổi mật khẩu thành công',
-                'Mật khẩu tài khoản của bạn đã được thay đổi thành công. Nếu không phải bạn thực hiện, vui lòng liên hệ ngay với CSKH Bảo Sneaker.'
-            ]
-        );
+        await UserNotification.create({
+            user_id: user._id,
+            title: 'Bảo mật: Đổi mật khẩu thành công',
+            message: 'Mật khẩu tài khoản của bạn đã được thay đổi thành công. Nếu không phải bạn thực hiện, vui lòng liên hệ ngay với CSKH Bảo Sneaker.',
+            type: 'system',
+        }).catch((e) => console.warn('Lỗi tạo notification:', e.message));
 
         return res.status(200).json({
             success: true,
@@ -220,31 +228,25 @@ export const changePasswordController = async (req, res) => {
 
 // -----------------------------------------------------------
 // 4. GET /api/user/notifications
-// Lấy danh sách Hộp thư / Thông báo & Phản hồi từ Admin
 // -----------------------------------------------------------
 export const getNotificationsController = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const notifs = await pool.query(
-            `SELECT * FROM user_notifications
-             WHERE user_id = $1
-             ORDER BY created_at DESC`,
-            [userId]
-        );
+        const notifs = await UserNotification.find({
+            $or: [{ user_id: userId }, { user_id: String(userId) }],
+        }).sort({ created_at: -1 });
 
-        const unreadCountRes = await pool.query(
-            `SELECT COUNT(*) AS unread
-             FROM user_notifications
-             WHERE user_id = $1 AND is_read = false`,
-            [userId]
-        );
+        const unreadCount = await UserNotification.countDocuments({
+            $or: [{ user_id: userId }, { user_id: String(userId) }],
+            is_read: false,
+        });
 
         return res.status(200).json({
             success: true,
-            total: notifs.rows.length,
-            unread_count: parseInt(unreadCountRes.rows[0].unread, 10) || 0,
-            data: notifs.rows,
+            total: notifs.length,
+            unread_count: unreadCount,
+            data: notifs,
         });
     } catch (err) {
         console.error('❌ Lỗi getNotificationsController:', err);
@@ -257,22 +259,23 @@ export const getNotificationsController = async (req, res) => {
 
 // -----------------------------------------------------------
 // 5. PATCH /api/user/notifications/:id/read
-// Đánh dấu 1 thông báo là đã đọc
 // -----------------------------------------------------------
 export const markNotificationReadController = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
 
-        const result = await pool.query(
-            `UPDATE user_notifications
-             SET is_read = true
-             WHERE id = $1 AND user_id = $2
-             RETURNING *`,
-            [id, userId]
+        const filter = mongoose.Types.ObjectId.isValid(id)
+            ? { _id: id }
+            : { $or: [{ _id: id }, { id }] };
+
+        const updated = await UserNotification.findOneAndUpdate(
+            { ...filter, $or: [{ user_id: userId }, { user_id: String(userId) }] },
+            { $set: { is_read: true } },
+            { new: true }
         );
 
-        if (result.rows.length === 0) {
+        if (!updated) {
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy thông báo hoặc bạn không có quyền thao tác.',
@@ -282,7 +285,7 @@ export const markNotificationReadController = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Đã đánh dấu đã đọc.',
-            data: result.rows[0],
+            data: updated,
         });
     } catch (err) {
         console.error('❌ Lỗi markNotificationReadController:', err);
@@ -295,17 +298,17 @@ export const markNotificationReadController = async (req, res) => {
 
 // -----------------------------------------------------------
 // 6. PATCH /api/user/notifications/read-all
-// Đánh dấu tất cả thông báo là đã đọc
 // -----------------------------------------------------------
 export const markAllNotificationsReadController = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        await pool.query(
-            `UPDATE user_notifications
-             SET is_read = true
-             WHERE user_id = $1 AND is_read = false`,
-            [userId]
+        await UserNotification.updateMany(
+            {
+                $or: [{ user_id: userId }, { user_id: String(userId) }],
+                is_read: false,
+            },
+            { $set: { is_read: true } }
         );
 
         return res.status(200).json({
@@ -323,26 +326,24 @@ export const markAllNotificationsReadController = async (req, res) => {
 
 // -----------------------------------------------------------
 // 7. GET /api/user/my-supports
-// Lấy danh sách phiếu khiếu nại / yêu cầu hỗ trợ của chính User
-// kèm phản hồi của Admin
 // -----------------------------------------------------------
 export const getMySupportsController = async (req, res) => {
     try {
         const userId = req.user.id;
         const userEmail = req.user.email;
 
-        const result = await pool.query(
-            `SELECT id, name, email, phone, subject, message, status, admin_reply, created_at
-             FROM support_contacts
-             WHERE user_id = $1 OR email = $2
-             ORDER BY created_at DESC`,
-            [userId, userEmail]
-        );
+        const supports = await SupportContact.find({
+            $or: [
+                { user_id: userId },
+                { user_id: String(userId) },
+                { email: userEmail ? userEmail.toLowerCase().trim() : '' },
+            ],
+        }).sort({ created_at: -1 });
 
         return res.status(200).json({
             success: true,
-            total: result.rows.length,
-            data: result.rows,
+            total: supports.length,
+            data: supports,
         });
     } catch (err) {
         console.error('❌ Lỗi getMySupportsController:', err);
@@ -352,4 +353,3 @@ export const getMySupportsController = async (req, res) => {
         });
     }
 };
-

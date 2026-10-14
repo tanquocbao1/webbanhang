@@ -1,28 +1,28 @@
 // ============================================================
 //  src/controllers/installment.controller.js
-//  Quản lý đơn yêu cầu mua trả góp
+//  Quản lý đơn yêu cầu mua trả góp (MongoDB / Mongoose)
 // ============================================================
 
-import pool from '../config/db.js';
+import mongoose from 'mongoose';
+import Installment from '../models/installment.model.js';
+import { getProductById } from '../models/product.model.js';
 import {
     sanitizeString,
     isValidVNPhone,
     normalizePhone,
     isValidIdCard,
-    isValidFullName
+    isValidFullName,
 } from '../utils/validator.js';
 
 // -----------------------------------------------------------
 //  createInstallmentController
-//  Xử lý: POST /api/installments (Khách hàng gửi yêu cầu trả góp)
 // -----------------------------------------------------------
 export const createInstallmentController = async (req, res) => {
     try {
         const errors = {};
-
-        // 1. Trích xuất đúng payload và sanitize
         const rawBody = req.body || {};
-        const product_id      = parseInt(rawBody.product_id, 10);
+
+        const product_id      = rawBody.product_id;
         const customer_name   = sanitizeString(rawBody.customer_name, 100);
         const rawPhone        = typeof rawBody.phone === 'string' ? rawBody.phone.trim() : '';
         const phone           = normalizePhone(rawPhone);
@@ -32,8 +32,7 @@ export const createInstallmentController = async (req, res) => {
         const term_months     = parseInt(rawBody.term_months, 10);
         const prepaid_percent = parseFloat(rawBody.prepaid_percent) || 0;
 
-        // 2. Validate lớp Back-end: Kiểm tra từng trường thông tin
-        if (!product_id || isNaN(product_id) || product_id <= 0) {
+        if (!product_id || String(product_id).trim() === '') {
             errors.product_id = 'Mã sản phẩm không hợp lệ hoặc bị thiếu.';
         }
 
@@ -67,7 +66,6 @@ export const createInstallmentController = async (req, res) => {
             errors.prepaid_percent = `Tỷ lệ trả trước không hợp lệ. Chỉ chấp nhận các mức: ${validPercents.join('%, ')}%.`;
         }
 
-        // 3. Nếu có lỗi validation -> Chặn ngay lập tức và trả về HTTP 400 kèm chi tiết từng trường
         if (Object.keys(errors).length > 0) {
             return res.status(400).json({
                 success: false,
@@ -76,28 +74,20 @@ export const createInstallmentController = async (req, res) => {
             });
         }
 
-        // 4. Kiểm tra sự tồn tại của sản phẩm trong Database & Lấy giá thật
-        const prodResult = await pool.query(
-            'SELECT id, name, price, stock_quantity FROM products WHERE id = $1',
-            [product_id]
-        );
-
-        if (prodResult.rows.length === 0) {
+        // Kiểm tra sản phẩm
+        const product = await getProductById(product_id);
+        if (!product) {
             return res.status(404).json({
                 success: false,
                 message: 'Sản phẩm bạn chọn mua trả góp không tồn tại trên hệ thống.',
-                errors: { product_id: 'Sản phẩm không tồn tại.' }
+                errors: { product_id: 'Sản phẩm không tồn tại.' },
             });
         }
 
-        const product = prodResult.rows[0];
         const realPrice = parseFloat(product.price);
-
-        // 5. Tuyệt đối không tin số tiền Client gửi lên: Tự động tính toán lại 100% chuẩn xác
         const prepaid_amount = Math.round(realPrice * (prepaid_percent / 100));
         const pGoc = Math.max(0, realPrice - prepaid_amount);
 
-        // Lãi suất: Thẻ tín dụng = 0%, Công ty tài chính = 0% (gói ưu đãi) hoặc 1.49%/tháng
         const isZeroInterest = (method === 'credit_card' || rawBody.package_type === 'zero');
         const monthlyRate = isZeroInterest ? 0 : 0.0149;
 
@@ -105,85 +95,70 @@ export const createInstallmentController = async (req, res) => {
         const total_payment = pGoc + totalInterest;
         const monthly_payment = term_months > 0 ? Math.round(total_payment / term_months) : 0;
 
-        // Lấy user_id nếu khách hàng đã đăng nhập
         const userId = req.user ? req.user.id : null;
 
-        // 6. Ghi dữ liệu sạch vào Database
-        const result = await pool.query(
-            `INSERT INTO installments (
-                user_id, product_id, customer_name, phone, id_card, address,
-                method, term_months, prepaid_percent, prepaid_amount, monthly_payment, total_payment, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending')
-            RETURNING *`,
-            [
-                userId,
-                product.id,
-                customer_name,
-                phone,
-                id_card || null,
-                address || null,
-                method,
-                term_months,
-                prepaid_percent,
-                prepaid_amount,
-                monthly_payment,
-                total_payment
-            ]
-        );
+        // Lưu hồ sơ vào MongoDB
+        const newRecord = await Installment.create({
+            user_id: userId,
+            product_id: product._id || product.custom_id || product.id,
+            product_name: product.name,
+            product_brand: product.brand,
+            product_price: realPrice,
+            product_image: product.image_url || '',
+            customer_name,
+            phone,
+            id_card: id_card || null,
+            address: address || null,
+            method,
+            term_months,
+            prepaid_percent,
+            prepaid_amount,
+            monthly_payment,
+            total_payment,
+            status: 'pending',
+        });
 
-        const newRecord = result.rows[0];
+        const shortCode = newRecord._id.toString().slice(-6).toUpperCase();
 
-        // 7. Trả về HTTP 201 Created thành công
         return res.status(201).json({
             success: true,
             message: 'Đăng ký hồ sơ mua trả góp thành công! Nhân viên tài chính sẽ liên hệ với bạn trong vòng 15 phút.',
             data: {
-                id: newRecord.id,
-                application_code: `TG${newRecord.id}`,
+                id: newRecord._id.toString(),
+                application_code: `TG${shortCode}`,
                 customer_name: newRecord.customer_name,
                 phone: newRecord.phone,
                 product_id: newRecord.product_id,
-                product_name: product.name,
+                product_name: newRecord.product_name,
                 method: newRecord.method,
                 term_months: newRecord.term_months,
                 prepaid_amount: parseFloat(newRecord.prepaid_amount),
                 monthly_payment: parseFloat(newRecord.monthly_payment),
                 total_payment: parseFloat(newRecord.total_payment),
                 status: newRecord.status,
-                created_at: newRecord.created_at
+                created_at: newRecord.created_at,
             },
         });
     } catch (err) {
         console.error('❌ Lỗi createInstallmentController:', err);
         return res.status(500).json({
             success: false,
-            message: 'Đã xảy ra lỗi phía máy chủ khi lưu hồ sơ trả góp. Vui lòng thử lại sau.'
+            message: 'Đã xảy ra lỗi phía máy chủ khi lưu hồ sơ trả góp. Vui lòng thử lại sau.',
         });
     }
 };
 
 // -----------------------------------------------------------
 //  getAllInstallmentsController
-//  Xử lý: GET /api/installments (Admin & Nhân viên xem danh sách)
 // -----------------------------------------------------------
 export const getAllInstallmentsController = async (req, res) => {
     try {
-        const result = await pool.query(`
-            SELECT 
-                i.*,
-                p.name AS product_name,
-                p.brand AS product_brand,
-                p.price AS product_price,
-                p.image_url AS product_image
-            FROM installments i
-            LEFT JOIN products p ON p.id = i.product_id
-            ORDER BY i.created_at DESC
-        `);
+        const installments = await Installment.find().sort({ created_at: -1 });
 
         return res.status(200).json({
             success: true,
-            total: result.rows.length,
-            data: result.rows,
+            total: installments.length,
+            data: installments,
         });
     } catch (err) {
         console.error('❌ Lỗi getAllInstallmentsController:', err);
@@ -193,7 +168,6 @@ export const getAllInstallmentsController = async (req, res) => {
 
 // -----------------------------------------------------------
 //  updateInstallmentStatusController
-//  Xử lý: PATCH /api/installments/:id/status (Admin/Sale duyệt/từ chối/yêu cầu bổ sung)
 // -----------------------------------------------------------
 export const updateInstallmentStatusController = async (req, res) => {
     try {
@@ -208,16 +182,18 @@ export const updateInstallmentStatusController = async (req, res) => {
             });
         }
 
-        const result = await pool.query(
-            `UPDATE installments
-             SET status = $1,
-                 admin_notes = COALESCE($2, admin_notes)
-             WHERE id = $3
-             RETURNING *`,
-            [status, admin_notes, id]
-        );
+        const filter = mongoose.Types.ObjectId.isValid(id)
+            ? { _id: id }
+            : { $or: [{ _id: id }, { id }] };
 
-        if (result.rows.length === 0) {
+        const updateFields = { status };
+        if (admin_notes !== undefined) {
+            updateFields.admin_notes = admin_notes;
+        }
+
+        const updated = await Installment.findOneAndUpdate(filter, { $set: updateFields }, { new: true });
+
+        if (!updated) {
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy hồ sơ trả góp này.',
@@ -227,7 +203,7 @@ export const updateInstallmentStatusController = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Cập nhật trạng thái hồ sơ trả góp thành công!',
-            data: result.rows[0],
+            data: updated,
         });
     } catch (err) {
         console.error('❌ Lỗi updateInstallmentStatusController:', err);

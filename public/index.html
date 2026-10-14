@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SneakerX - Giày Thể Thao & Giày Đá Bóng Chính Hãng</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 
@@ -156,6 +157,9 @@
                     🛡️ Chính sách SneakerX: 1 đổi 1 trong 30 ngày nếu lỗi • Bảo hành 12 tháng chính hãng • Hỗ trợ kỹ thuật trọn đời.
                 </div>
 
+                <!-- THÔNG BÁO YÊU CẦU ĐĂNG NHẬP TRONG GIỎ HÀNG (NẾU CHƯA ĐĂNG NHẬP) -->
+                <div id="cart-auth-hint"></div>
+
                 <!-- NÚT TIẾN HÀNH XÁC NHẬN ĐƠN HÀNG (CHECKOUT) -->
                 <button class="btn btn-primary" style="width: 100%; background: #0f172a; box-shadow: none;"
                     onclick="goToCheckout()">
@@ -178,6 +182,9 @@
                 <a href="#" onclick="showPage('cart'); return false;">Giỏ hàng</a> <span>/</span>
                 <span style="color: var(--black); font-weight: 700;">Xác nhận đơn hàng</span>
             </div>
+
+            <!-- KHUNG THÔNG BÁO TRẠNG THÁI TÀI KHOẢN KHÁCH HÀNG TRÊN TRANG CHECKOUT -->
+            <div id="checkout-auth-status-box"></div>
 
             <div class="checkout-layout">
                 <!-- CỘT BÊN TRÁI: FORM 2 BƯỚC THÔNG TIN NHẬN HÀNG -->
@@ -677,18 +684,31 @@
                 </div>
 
                 <!-- Khu vực hiển thị mã QR SePay -->
-                <div id="sepay-qr-container" style="display: none; text-align: center; margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <div id="sepay-qr-container" style="display: none; text-align: center; margin-top: 20px; padding: 18px 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.04);">
                     <div id="qr-content-wrapper">
-                        <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 10px;">Quét mã QR để thanh toán</h3>
-                        <img id="sepay-qr-img" src="" alt="Mã QR Thanh Toán" style="max-width: 200px; height: auto; border-radius: 8px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <h3 style="font-size: 16px; font-weight: 800; color: #1e293b; margin-bottom: 10px;">Quét mã QR để thanh toán</h3>
+                        <img id="sepay-qr-img" src="" alt="Mã QR Thanh Toán" style="max-width: 200px; height: auto; border-radius: 8px; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: block;">
                         <p style="font-size: 13px; color: #64748b; margin-top: 10px;">Mở ứng dụng ngân hàng và quét mã để thanh toán tự động.</p>
-                        <button type="button" onclick="testQRPayment()" style="margin-top: 15px; background: #2563eb; color: #fff; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; width: 100%; transition: background 0.2s;">(Nút Test) Mô phỏng Khách đã chuyển khoản</button>
+                        
+                        <div id="qr-pending-status" style="margin-top: 14px; padding: 10px 14px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; color: #c2410c; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ea580c; animation: pulse 1.5s infinite;"></span>
+                            <span>⏳ Đang chờ Admin xác nhận đã nhận tiền...</span>
+                        </div>
+                        <p style="font-size: 11.5px; color: #94a3b8; margin: 6px 0 0 0;">(Hệ thống sẽ tự động hiển thị thanh toán thành công ngay khi Admin duyệt nhận tiền)</p>
+
+                        <!-- Nút duyệt nhanh chỉ hiển thị khi đăng nhập tài khoản Admin -->
+                        <div id="admin-qr-action-box" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                            <button type="button" onclick="adminConfirmCurrentOrderPayment()" style="background: linear-gradient(135deg, #16a34a, #15803d); color: #fff; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 800; width: 100%; box-shadow: 0 4px 10px rgba(22, 163, 74, 0.25); transition: all 0.2s;">
+                                👑 [Admin] Bấm để xác nhận "Đã nhận tiền"
+                            </button>
+                            <span style="font-size: 11px; color: #64748b; margin-top: 4px; display: block; text-align: center;">(Chỉ hiển thị với Admin để thao tác duyệt ngay)</span>
+                        </div>
                     </div>
 
-                    <div id="qr-success-wrapper" style="display: none; padding: 20px 0; color: #16a34a;">
-                        <div style="font-size: 40px; margin-bottom: 10px;">✅</div>
-                        <h3 style="font-size: 18px; font-weight: 700;">Đã nhận được thanh toán!</h3>
-                        <p style="font-size: 13px; color: #64748b; margin-top: 5px;">Hệ thống SePay vừa báo có tiền. Đơn hàng đã được chuyển sang trạng thái "Đã thanh toán".</p>
+                    <div id="qr-success-wrapper" style="display: none; padding: 18px 10px; color: #16a34a; text-align: center; animation: modalPop 0.3s ease;">
+                        <div style="width: 56px; height: 56px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 10px auto; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.2);">✓</div>
+                        <h3 style="font-size: 18px; font-weight: 900; color: #15803d; margin-bottom: 6px;">Đã nhận được thanh toán!</h3>
+                        <p style="font-size: 13px; color: #475569; margin: 0; line-height: 1.5;">Admin đã kiểm tra và bấm xác nhận "Đã nhận tiền". Đơn hàng đã được chuyển sang trạng thái <b>"Đã thanh toán"</b>.</p>
                     </div>
                 </div>
                 <div class="order-info-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">

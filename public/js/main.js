@@ -6,7 +6,7 @@
 
 // 1. DỮ LIỆU SẢN PHẨM MẶC ĐỊNH (KÈM SỐ LƯỢNG TỒN KHO & ĐÃ BÁN)
 const initialProducts = [
-    { id: 1, name: "Nike Zoom Mercurial Superfly 10", brand: "Nike", category: "Giày Đá Banh", price: 6500000, stock: 18, sold: 12, tag: "HOT", image: "https://images.unsplash.com/photo-1614631446501-abcf76949eca?auto=format&fit=crop&w=600&q=80", desc: "Đế đinh FG bám sân cỏ tự nhiên, sợi dệt Flyknit ôm chân tốc độ cao" },
+    { id: 1, name: "Nike Zoom Mercurial Superfly 10", brand: "Nike", category: "Giày Đá Banh", price: 6500000, stock: 18, sold: 12, tag: "HOT", image: "https://images.unsplash.com/photo-1556906781-9a412961c28c?auto=format&fit=crop&w=600&q=80", desc: "Đế đinh FG bám sân cỏ tự nhiên, sợi dệt Flyknit ôm chân tốc độ cao" },
     { id: 2, name: "Adidas Predator Accuracy.1 ", brand: "Adidas", category: "Giày Đá Banh", price: 5900000, stock: 14, sold: 9, tag: "Mới", image: "https://images.unsplash.com/photo-1511886929837-354d827aae26?auto=format&fit=crop&w=600&q=80", desc: "Công nghệ High-Definition Grip kiểm soát bóng tối đa" },
     { id: 3, name: "Nike Air Max 270 React", brand: "Nike", category: "Thời trang", price: 3500000, stock: 25, sold: 21, tag: "Mới", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80", desc: "Đệm khí Air Max cực êm, phối màu đỏ cam thể thao năng động" },
     { id: 4, name: "Adidas Ultraboost 22 Running", brand: "Adidas", category: "Chạy bộ", price: 4200000, stock: 4, sold: 16, tag: "", image: "https://images.unsplash.com/photo-1587563871167-1ee9c731aefb?auto=format&fit=crop&w=600&q=80", desc: "Đế đệm Boost hoàn trả năng lượng tối ưu cho đường chạy cự ly dài" },
@@ -31,10 +31,14 @@ const initialProducts = [
 // Khởi tạo sản phẩm từ localStorage hoặc dùng mặc định
 let productsData = JSON.parse(localStorage.getItem('sneakerx_products')) || initialProducts;
 
-// Đảm bảo dữ liệu sản phẩm luôn có thuộc tính stock và sold hợp lệ
+// Đảm bảo dữ liệu sản phẩm luôn có thuộc tính stock, sold và ảnh hợp lệ
 function ensureProductsStock() {
     let hasChanges = false;
     productsData.forEach(p => {
+        if (p.image && p.image.includes('1614631446501')) {
+            p.image = 'https://images.unsplash.com/photo-1556906781-9a412961c28c?auto=format&fit=crop&w=600&q=80';
+            hasChanges = true;
+        }
         if (p.stock === undefined || p.stock === null || isNaN(p.stock)) {
             p.stock = 15;
             hasChanges = true;
@@ -63,6 +67,7 @@ function saveCart() {
 
 // Trạng thái Người dùng & Phân quyền Admin
 let currentUser = JSON.parse(localStorage.getItem('sneakerx_user')) || null;
+let pendingCheckoutAfterAuth = false; // Cờ chờ chuyển đến checkout sau khi đăng nhập xong
 
 function isAdmin() {
     return currentUser && (currentUser.role === 'admin' || currentUser.email === 'admin@gmail.com');
@@ -118,9 +123,9 @@ function updateAuthUI() {
             if (roleEl) roleEl.innerText = 'Quản trị viên (Admin)';
             if (adminTopBar) adminTopBar.classList.add('active');
             if (adminProdActions) adminProdActions.style.display = 'block';
-            document.body.style.paddingTop = '38px'; // Chừa chỗ cho admin top bar
+            document.body.style.paddingTop = '52px'; // Chừa chỗ cho admin top bar
         } else {
-            if (roleEl) roleEl.innerText = 'Khách hàng';
+            if (roleEl) roleEl.innerText = 'Khách hàng thành viên';
             if (adminTopBar) adminTopBar.classList.remove('active');
             if (adminProdActions) adminProdActions.style.display = 'none';
             document.body.style.paddingTop = '0';
@@ -131,6 +136,22 @@ function updateAuthUI() {
         if (adminTopBar) adminTopBar.classList.remove('active');
         if (adminProdActions) adminProdActions.style.display = 'none';
         document.body.style.paddingTop = '0';
+    }
+
+    // Cập nhật thông báo nhắc nhở đăng nhập trong giỏ hàng nếu có
+    const cartAuthHint = document.getElementById('cart-auth-hint');
+    if (cartAuthHint) {
+        if (!currentUser) {
+            cartAuthHint.style.display = 'block';
+            cartAuthHint.innerHTML = `
+                <div style="background: #fff7ed; border: 1px dashed #fdba74; padding: 12px 14px; border-radius: 12px; font-size: 13px; color: #9a3412; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span>🔒 Vui lòng đăng nhập tài khoản khách hàng để đặt hàng</span>
+                    <button type="button" onclick="openAuthModal()" style="background: #ea580c; color: white; border: none; padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; cursor: pointer;">Đăng nhập</button>
+                </div>
+            `;
+        } else {
+            cartAuthHint.style.display = 'none';
+        }
     }
 }
 
@@ -162,6 +183,12 @@ function handleLogin(event) {
         updateAuthUI();
         renderProducts();
         showToast('👑 Chào mừng trở lại, Quản trị viên! Bạn có toàn quyền quản trị SneakerX.');
+
+        // Nếu trước đó bấm đặt hàng, tự động đưa đến trang đặt hàng
+        if (pendingCheckoutAfterAuth) {
+            pendingCheckoutAfterAuth = false;
+            goToCheckout();
+        }
         return;
     }
 
@@ -179,7 +206,13 @@ function handleLogin(event) {
         closeAuthModal();
         updateAuthUI();
         renderProducts();
-        showToast(`Chào mừng ${matchedUser.full_name} đã quay trở lại!`);
+        showToast(`Chào mừng ${matchedUser.full_name} đã quay trở lại! Bạn có thể đặt hàng ngay.`);
+
+        // Nếu trước đó bấm đặt hàng, tự động đưa đến trang đặt hàng
+        if (pendingCheckoutAfterAuth) {
+            pendingCheckoutAfterAuth = false;
+            goToCheckout();
+        }
         return;
     }
 
@@ -212,10 +245,23 @@ function handleRegister(event) {
     registeredUsers.push({ email, password, full_name: fullName });
     localStorage.setItem('sneakerx_registered_users', JSON.stringify(registeredUsers));
 
-    showToast('Đăng ký thành công! Hãy đăng nhập bằng tài khoản vừa tạo.');
-    switchAuthTab('login');
-    document.getElementById('login-email').value = email;
-    document.getElementById('login-password').value = password;
+    // Tự động đăng nhập luôn tài khoản khách hàng mới tạo
+    currentUser = {
+        email: email,
+        full_name: fullName,
+        role: 'customer'
+    };
+    localStorage.setItem('sneakerx_user', JSON.stringify(currentUser));
+    closeAuthModal();
+    updateAuthUI();
+    renderProducts();
+    showToast(`Đăng ký thành công! Chào mừng ${fullName} đến với SneakerX.`);
+
+    // Nếu trước đó đang chờ đặt hàng, tự động đưa vào trang đặt hàng
+    if (pendingCheckoutAfterAuth) {
+        pendingCheckoutAfterAuth = false;
+        goToCheckout();
+    }
 }
 
 // Đăng xuất
@@ -224,11 +270,44 @@ function logout() {
     localStorage.removeItem('sneakerx_user');
     updateAuthUI();
     renderProducts();
+
+    // Nếu đang ở trang checkout thì điều hướng về giỏ hàng hoặc trang chủ
+    const checkoutPage = document.getElementById('page-checkout');
+    if (checkoutPage && checkoutPage.style.display === 'block') {
+        showPage('cart');
+    }
+
     showToast('Đã đăng xuất tài khoản thành công!');
 }
 
 // 3. HIỂN THỊ DANH SÁCH SẢN PHẨM & QUYỀN XÓA CHO ADMIN
 let currentFilter = 'all';
+
+// CẤU HÌNH SIZE GIÀY TỪ 39 ĐẾN 43 CHO TOÀN BỘ SẢN PHẨM
+const AVAILABLE_SIZES = [39, 40, 41, 42, 43];
+const selectedProductSizes = {}; // Lưu size đang chọn cho mỗi sản phẩm
+window.AVAILABLE_SIZES = AVAILABLE_SIZES;
+window.selectedProductSizes = selectedProductSizes;
+
+function selectProductSize(event, productId, size) {
+    if (event) event.stopPropagation();
+    selectedProductSizes[productId] = Number(size);
+
+    const textEl = document.getElementById(`selected-size-text-${productId}`);
+    if (textEl) textEl.innerText = `Size ${size}`;
+
+    const groupEl = document.getElementById(`size-group-${productId}`);
+    if (groupEl) {
+        groupEl.querySelectorAll('.size-pill-btn').forEach(btn => {
+            if (Number(btn.getAttribute('data-size')) === Number(size)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+}
+window.selectProductSize = selectProductSize;
 
 function renderProducts(filter = currentFilter) {
     currentFilter = filter;
@@ -303,6 +382,30 @@ function renderProducts(filter = currentFilter) {
             stockTagHTML = `<div class="product-stock-tag in-stock">📦 Còn: ${stockQty} đôi</div>`;
         }
 
+        // Size đang được chọn cho sản phẩm này (Mặc định là 40)
+        const chosenSize = selectedProductSizes[product.id] || 40;
+        selectedProductSizes[product.id] = chosenSize;
+
+        const sizePillsHTML = `
+            <div class="product-size-wrapper">
+                <div class="product-size-label">
+                    <span>Chọn size:</span>
+                    <span class="selected-size-text" id="selected-size-text-${product.id}">Size ${chosenSize}</span>
+                </div>
+                <div class="size-pills-row" id="size-group-${product.id}">
+                    ${AVAILABLE_SIZES.map(sz => `
+                        <button type="button" 
+                                class="size-pill-btn ${sz === chosenSize ? 'active' : ''}" 
+                                data-size="${sz}"
+                                onclick="selectProductSize(event, ${product.id}, ${sz})"
+                                title="Chọn size ${sz}">
+                            ${sz}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
         card.innerHTML = `
             ${badgeHTML}
             ${adminBarHTML}
@@ -314,6 +417,9 @@ function renderProducts(filter = currentFilter) {
                 <div class="product-title" title="${product.name}">${product.name}</div>
                 ${stockTagHTML}
                 ${product.desc ? `<p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${product.desc}</p>` : ''}
+                
+                ${sizePillsHTML}
+
                 <div class="product-bottom">
                     <div>
                         <div class="product-price">${formatPrice(product.price)}</div>
@@ -367,8 +473,8 @@ function filterProducts(category) {
     renderProducts(category);
 }
 
-// 4. XỬ LÝ GIỎ HÀNG (KIỂM TRA HÀNG TỒN KHO)
-function addToCart(event, productId) {
+// 4. XỬ LÝ GIỎ HÀNG (KIỂM TRA HÀNG TỒN KHO & SIZE GIÀY)
+function addToCart(event, productId, specificSize = null) {
     if (event) event.stopPropagation();
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
@@ -381,20 +487,23 @@ function addToCart(event, productId) {
         return;
     }
 
-    const existingItem = cart.find(item => item.product.id === productId);
+    const size = specificSize ? Number(specificSize) : (selectedProductSizes[productId] || 40);
+
+    const existingItem = cart.find(item => item.product.id === productId && Number(item.size || 40) === Number(size));
     if (existingItem) {
+        existingItem.size = Number(size);
         if (existingItem.qty >= availableStock) {
             showToast(`Cửa hàng chỉ còn ${availableStock} đôi "${product.name}" trong kho, không thể thêm nữa!`, 'error');
             return;
         }
         existingItem.qty += 1;
     } else {
-        cart.push({ product, qty: 1 });
+        cart.push({ product, qty: 1, size: Number(size) });
     }
 
     saveCart();
     updateCartCount();
-    showToast(`Đã thêm "${product.name}" vào giỏ hàng!`);
+    showToast(`Đã thêm "${product.name}" (Size ${size}) vào giỏ hàng!`);
 }
 
 function updateCartCount() {
@@ -427,6 +536,8 @@ function renderCart() {
     let totalPrice = 0;
 
     cart.forEach((item, index) => {
+        const itemSize = Number(item.size || 40);
+        item.size = itemSize;
         totalQty += item.qty;
         totalPrice += item.product.price * item.qty;
 
@@ -435,7 +546,17 @@ function renderCart() {
                 <img src="${item.product.image}" alt="${item.product.name}" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80'">
                 <div class="cart-item-info">
                     <div class="cart-item-title">${item.product.name}</div>
-                    <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 5px;">Hãng: <b>${item.product.brand}</b> | Dòng: ${item.product.category}</div>
+                    <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Hãng: <b>${item.product.brand}</b> | Dòng: ${item.product.category}</div>
+                    
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                        <span style="font-size: 12px; font-weight: 700; color: var(--slate-700);">👟 Size:</span>
+                        <select onchange="changeItemSize(${index}, this.value)" style="padding: 2px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 800; background: #fff; color: #ea580c; cursor: pointer;">
+                            ${AVAILABLE_SIZES.map(sz => `
+                                <option value="${sz}" ${sz === itemSize ? 'selected' : ''}>Size ${sz}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+
                     <div class="cart-item-price">${formatPrice(item.product.price)}</div>
                 </div>
                 <div class="cart-item-qty">
@@ -452,6 +573,27 @@ function renderCart() {
     document.getElementById('summary-subtotal').innerText = formatPrice(totalPrice);
     document.getElementById('summary-total').innerText = formatPrice(totalPrice);
 }
+
+function changeItemSize(index, newSize) {
+    if (!cart[index]) return;
+    const targetSize = Number(newSize);
+    const currentItem = cart[index];
+    
+    // Tìm xem trong giỏ đã có món nào trùng productId và trùng size mới này chưa
+    const existingSame = cart.find((it, i) => i !== index && it.product.id === currentItem.product.id && Number(it.size || 40) === targetSize);
+    if (existingSame) {
+        existingSame.qty += currentItem.qty;
+        cart.splice(index, 1);
+    } else {
+        currentItem.size = targetSize;
+    }
+    
+    saveCart();
+    renderCart();
+    renderCheckout();
+    showToast(`Đã đổi sang Size ${targetSize}!`);
+}
+window.changeItemSize = changeItemSize;
 
 function changeQty(index, delta) {
     if (!cart[index]) return;
@@ -479,6 +621,15 @@ function goToCheckout() {
         showToast('Giỏ hàng trống! Vui lòng chọn ít nhất 1 sản phẩm.', 'error');
         return;
     }
+
+    // BẮT BUỘC: Khách hàng phải đăng nhập thì mới được đặt hàng!
+    if (!currentUser) {
+        pendingCheckoutAfterAuth = true;
+        showToast('Vui lòng đăng nhập tài khoản khách hàng để tiến hành đặt hàng!', 'error');
+        openAuthModal();
+        return;
+    }
+
     showPage('checkout');
 }
 
@@ -487,6 +638,39 @@ function renderCheckout() {
     const countEl = document.getElementById('checkout-item-count');
     const subtotalEl = document.getElementById('checkout-subtotal');
     const totalEl = document.getElementById('checkout-total');
+    const authBox = document.getElementById('checkout-auth-status-box');
+
+    // Cập nhật thông tin tài khoản đăng nhập trên đầu trang checkout
+    if (authBox) {
+        if (currentUser) {
+            authBox.innerHTML = `
+                <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">👤</span>
+                        <div>
+                            <div style="font-size: 14.5px; font-weight: 800; color: #065f46;">Đang đặt hàng với tài khoản: ${currentUser.full_name || currentUser.email}</div>
+                            <div style="font-size: 12.5px; color: #047857;">Email xác nhận: ${currentUser.email} • Phân quyền: ${currentUser.role === 'admin' ? 'Quản trị viên' : 'Khách hàng thành viên'}</div>
+                        </div>
+                    </div>
+                    <span style="background: #10b981; color: #ffffff; padding: 4px 12px; border-radius: 99px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;">✓ ĐÃ ĐĂNG NHẬP</span>
+                </div>
+            `;
+        } else {
+            authBox.innerHTML = `
+                <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">🔒</span>
+                        <div>
+                            <div style="font-size: 14.5px; font-weight: 800; color: #9a3412;">Chưa đăng nhập tài khoản khách hàng!</div>
+                            <div style="font-size: 12.5px; color: #c2410c;">Bạn cần đăng nhập để xác nhận đơn hàng và kích hoạt bảo hành chính hãng.</div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-login" onclick="openAuthModal()" style="padding: 7px 16px; font-size: 12.5px;">Đăng nhập ngay</button>
+                </div>
+            `;
+        }
+    }
+
     if (!listEl) return;
 
     if (cart.length === 0) {
@@ -509,6 +693,7 @@ function renderCheckout() {
     let itemsHtml = '';
 
     cart.forEach(item => {
+        const itemSize = Number(item.size || 40);
         totalQty += item.qty;
         const itemTotal = item.product.price * item.qty;
         totalPrice += itemTotal;
@@ -518,7 +703,10 @@ function renderCheckout() {
                 <img src="${item.product.image}" alt="${item.product.name}" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80'">
                 <div class="checkout-item-details">
                     <div class="checkout-item-name" title="${item.product.name}">${item.product.name}</div>
-                    <div class="checkout-item-meta">Số lượng: ${item.qty} × ${formatPrice(item.product.price)}</div>
+                    <div class="checkout-item-meta" style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                        <span style="background: #fff7ed; color: #ea580c; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11.5px; border: 1px solid #fed7aa;">Size ${itemSize}</span>
+                        <span>Số lượng: ${item.qty} × ${formatPrice(item.product.price)}</span>
+                    </div>
                 </div>
                 <div class="checkout-item-price">${formatPrice(itemTotal)}</div>
             </div>
@@ -530,11 +718,17 @@ function renderCheckout() {
     if (subtotalEl) subtotalEl.innerText = formatPrice(totalPrice);
     if (totalEl) totalEl.innerText = formatPrice(totalPrice);
 
-    // Tự động điền dữ liệu nếu đã có sẵn
+    // Tự động điền dữ liệu nếu đã có sẵn từ tài khoản đăng nhập
     const savedRecipient = JSON.parse(localStorage.getItem('sneakerx_recipient') || '{}');
-    if (currentUser && !document.getElementById('checkout-name').value) {
-        document.getElementById('checkout-name').value = currentUser.full_name || '';
-        document.getElementById('checkout-email').value = currentUser.email || '';
+    if (currentUser) {
+        const nameInput = document.getElementById('checkout-name');
+        const emailInput = document.getElementById('checkout-email');
+        if (nameInput && (!nameInput.value || nameInput.value === '')) {
+            nameInput.value = currentUser.full_name || '';
+        }
+        if (emailInput && (!emailInput.value || emailInput.value === '')) {
+            emailInput.value = currentUser.email || '';
+        }
     } else {
         if (savedRecipient.name && document.getElementById('checkout-name') && !document.getElementById('checkout-name').value) {
             document.getElementById('checkout-name').value = savedRecipient.name;
@@ -554,6 +748,14 @@ function renderCheckout() {
 // Xử lý gửi đơn hàng (Xác nhận đặt hàng COD)
 function submitOrder(event) {
     if (event) event.preventDefault();
+
+    // BẮT BUỘC: Khách hàng phải đăng nhập thì mới được đặt hàng!
+    if (!currentUser) {
+        pendingCheckoutAfterAuth = true;
+        showToast('Vui lòng đăng nhập tài khoản khách hàng để hoàn tất đặt hàng!', 'error');
+        openAuthModal();
+        return;
+    }
 
     if (cart.length === 0) {
         showToast('Giỏ hàng trống! Không thể đặt hàng.', 'error');
@@ -642,7 +844,10 @@ function submitOrder(event) {
     // Tính toán chi phí khách hàng mua đồ và tạo đơn hàng
     const orderId = 'SX-' + Math.floor(100000 + Math.random() * 900000);
     const orderTotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
-    const orderItems = [...cart];
+    const orderItems = cart.map(it => ({
+        ...it,
+        size: Number(it.size || 40)
+    }));
 
     const orderData = {
         orderId,
@@ -656,7 +861,8 @@ function submitOrder(event) {
         paymentType: paymentMethod,
         items: orderItems,
         total: orderTotal,
-        status: 'Chờ xác nhận'
+        status: 'Chờ xác nhận',
+        paymentStatus: paymentMethod === 'QR' ? 'Chờ xác nhận' : 'Chưa thanh toán (COD)'
     };
 
     // Lưu đơn hàng vào danh sách lịch sử
@@ -681,9 +887,14 @@ function submitOrder(event) {
     updateAuthUI();
 }
 
+let currentSuccessOrderId = null;
+let orderPaymentWatcher = null;
+
 function showOrderSuccessModal(order) {
     const modal = document.getElementById('modal-order-success');
     if (!modal) return;
+
+    currentSuccessOrderId = order.orderId;
 
     document.getElementById('success-order-id').innerText = '#' + order.orderId;
     document.getElementById('success-order-date').innerText = order.date;
@@ -701,12 +912,11 @@ function showOrderSuccessModal(order) {
     const qrImg = document.getElementById('sepay-qr-img');
     const qrContentWrapper = document.getElementById('qr-content-wrapper');
     const qrSuccessWrapper = document.getElementById('qr-success-wrapper');
+    const adminQrBox = document.getElementById('admin-qr-action-box');
     
-    // Reset giao diện test QR
-    if (qrContentWrapper) qrContentWrapper.style.display = 'block';
-    if (qrSuccessWrapper) qrSuccessWrapper.style.display = 'none';
+    // Kiểm tra xem đơn hàng đã được admin bấm xác nhận đã nhận tiền chưa
+    const isPaid = order.status === 'Đã thanh toán' || order.paymentStatus === 'Đã nhận tiền';
 
-    
     if (order.paymentType === 'QR' && qrContainer && qrImg) {
         // --- THÔNG TIN TÀI KHOẢN NGÂN HÀNG CỦA BẠN ---
         const BANK_ID = 'MB'; // Ngân hàng (VD: MB, VCB, ACB, TPB...)
@@ -720,41 +930,107 @@ function showOrderSuccessModal(order) {
         
         qrImg.src = qrUrl;
         qrContainer.style.display = 'block';
+
+        if (isPaid) {
+            // Đã được Admin xác nhận nhận tiền -> Hiển thị phần thanh toán thành công
+            if (qrContentWrapper) qrContentWrapper.style.display = 'none';
+            if (qrSuccessWrapper) qrSuccessWrapper.style.display = 'block';
+        } else {
+            // Chưa được Admin xác nhận -> Chỉ hiện QR + Trạng thái chờ Admin duyệt nhận tiền
+            if (qrContentWrapper) qrContentWrapper.style.display = 'block';
+            if (qrSuccessWrapper) qrSuccessWrapper.style.display = 'none';
+
+            // Chỉ hiển thị nút Admin khi đang đăng nhập tài khoản Admin
+            if (adminQrBox) {
+                adminQrBox.style.display = isAdmin() ? 'block' : 'none';
+            }
+
+            // Thiết lập kiểm tra tự động liên tục: Khi Admin bấm "Đã nhận tiền", lập tức hiện phần thành công
+            if (orderPaymentWatcher) clearInterval(orderPaymentWatcher);
+            orderPaymentWatcher = setInterval(() => {
+                const orders = JSON.parse(localStorage.getItem('sneakerx_orders') || '[]');
+                const found = orders.find(o => o.orderId === currentSuccessOrderId);
+                if (found && (found.status === 'Đã thanh toán' || found.paymentStatus === 'Đã nhận tiền')) {
+                    clearInterval(orderPaymentWatcher);
+                    orderPaymentWatcher = null;
+                    if (qrContentWrapper) qrContentWrapper.style.display = 'none';
+                    if (qrSuccessWrapper) qrSuccessWrapper.style.display = 'block';
+                    showToast(`Đã nhận được thanh toán cho đơn hàng #${found.orderId}!`, 'success');
+                }
+            }, 800);
+        }
     } else if (qrContainer) {
         qrContainer.style.display = 'none';
+        if (orderPaymentWatcher) {
+            clearInterval(orderPaymentWatcher);
+            orderPaymentWatcher = null;
+        }
     }
 
     modal.style.display = 'flex';
 }
 
 function closeOrderSuccessModal() {
+    if (orderPaymentWatcher) {
+        clearInterval(orderPaymentWatcher);
+        orderPaymentWatcher = null;
+    }
     const modal = document.getElementById('modal-order-success');
     if (modal) modal.style.display = 'none';
-    showPage('home');
+    if (window.location.pathname.includes('thanh-toan.html')) {
+        window.location.href = '/';
+    } else {
+        showPage('home');
+    }
     showToast('Cảm ơn bạn đã tin tưởng SneakerX!');
 }
 
-function testQRPayment() {
-    const orderIdEl = document.getElementById('success-order-id');
-    if (!orderIdEl) return;
-    
-    const orderIdText = orderIdEl.innerText.replace('#', '');
-    const existingOrders = JSON.parse(localStorage.getItem('sneakerx_orders') || '[]');
-    const orderIndex = existingOrders.findIndex(o => o.orderId === orderIdText);
-    
-    if (orderIndex !== -1) {
+// XÁC NHẬN ĐÃ NHẬN TIỀN DÀNH CHO ADMIN
+function adminConfirmPayment(orderId) {
+    const orders = JSON.parse(localStorage.getItem('sneakerx_orders') || '[]');
+    const target = orders.find(o => o.orderId === orderId);
+    if (target) {
         // Cập nhật trạng thái
-        existingOrders[orderIndex].status = 'Đã thanh toán';
-        localStorage.setItem('sneakerx_orders', JSON.stringify(existingOrders));
+        target.status = 'Đã thanh toán';
+        target.paymentStatus = 'Đã nhận tiền';
+        localStorage.setItem('sneakerx_orders', JSON.stringify(orders));
         
-        showToast('Webhook SePay: Đã nhận được thanh toán!', 'success');
+        showToast(`Admin đã xác nhận nhận tiền cho đơn #${orderId}!`, 'success');
         
-        // Đổi giao diện
-        const qrContentWrapper = document.getElementById('qr-content-wrapper');
-        const qrSuccessWrapper = document.getElementById('qr-success-wrapper');
-        if (qrContentWrapper) qrContentWrapper.style.display = 'none';
-        if (qrSuccessWrapper) qrSuccessWrapper.style.display = 'block';
+        // Cập nhật bảng quản lý đơn hàng của Admin nếu đang mở
+        const modalAdmin = document.getElementById('modal-admin-orders');
+        if (modalAdmin && modalAdmin.style.display === 'flex') {
+            openAdminOrdersModal();
+        }
+
+        // Nếu modal khách hàng đang mở đúng đơn này thì chuyển ngay sang màn hình thành công
+        if (currentSuccessOrderId === orderId) {
+            const qrContentWrapper = document.getElementById('qr-content-wrapper');
+            const qrSuccessWrapper = document.getElementById('qr-success-wrapper');
+            if (qrContentWrapper) qrContentWrapper.style.display = 'none';
+            if (qrSuccessWrapper) qrSuccessWrapper.style.display = 'block';
+            if (orderPaymentWatcher) {
+                clearInterval(orderPaymentWatcher);
+                orderPaymentWatcher = null;
+            }
+        }
     }
+}
+
+function adminConfirmCurrentOrderPayment() {
+    if (!isAdmin()) {
+        showToast('Chỉ tài khoản Admin mới có quyền bấm xác nhận "Đã nhận tiền"!', 'error');
+        return;
+    }
+    const orderIdEl = document.getElementById('success-order-id');
+    const orderId = orderIdEl ? orderIdEl.innerText.replace('#', '').trim() : currentSuccessOrderId;
+    if (orderId) {
+        adminConfirmPayment(orderId);
+    }
+}
+
+function testQRPayment() {
+    adminConfirmCurrentOrderPayment();
 }
 
 // 6. THÊM SẢN PHẨM GIÀY MỚI (CHỈ DÀNH CHO ADMIN)
@@ -1322,7 +1598,7 @@ function openAdminOrdersModal() {
     // Cập nhật thống kê KPI đơn hàng
     const totalOrders = orders.length;
     const pendingOrders = orders.filter(o => o.status === 'Chờ xác nhận').length;
-    const doneOrders = orders.filter(o => o.status === 'Đã hoàn thành').length;
+    const doneOrders = orders.filter(o => o.status === 'Đã hoàn thành' || o.status === 'Đã thanh toán').length;
     const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
 
     const elTotal = document.getElementById('stat-orders-total');
@@ -1345,8 +1621,9 @@ function openAdminOrdersModal() {
     } else {
         let rowsHtml = '';
         orders.forEach((order, index) => {
-            const itemsStr = order.items.map(it => `${it.product.name} (x${it.qty})`).join('<br>• ');
-            const statusClass = order.status === 'Đang giao hàng' ? 'shipping' : (order.status === 'Đã hoàn thành' ? 'completed' : (order.status === 'Đã hủy' ? 'cancelled' : 'pending'));
+            const itemsStr = order.items.map(it => `${it.product.name} <span style="display: inline-block; background: #fff7ed; color: #ea580c; font-weight: 800; padding: 1px 6px; border-radius: 4px; font-size: 11px; border: 1px solid #fed7aa;">[Size ${it.size || 40}]</span> (x${it.qty})`).join('<br>• ');
+            const isPaid = order.status === 'Đã thanh toán' || order.paymentStatus === 'Đã nhận tiền';
+            const statusClass = order.status === 'Đang giao hàng' ? 'shipping' : ((order.status === 'Đã hoàn thành' || order.status === 'Đã thanh toán') ? 'completed' : (order.status === 'Đã hủy' ? 'cancelled' : 'pending'));
 
             rowsHtml += `
                 <tr>
@@ -1354,19 +1631,40 @@ function openAdminOrdersModal() {
                     <td style="font-weight: 700;">${order.customerName}</td>
                     <td style="font-size: 12.5px;">📞 ${order.phone}<br>📍 ${order.address}</td>
                     <td style="font-size: 12.5px; line-height: 1.4;">• ${itemsStr}</td>
-                    <td style="font-weight: 800; color: #dc2626; white-space: nowrap;">${formatPrice(order.total)}</td>
+                    <td style="font-weight: 800; color: #dc2626; white-space: nowrap;">
+                        ${formatPrice(order.total)}
+                        <div style="margin-top: 4px;">
+                            ${order.paymentType === 'QR' ? (
+                                isPaid ? 
+                                `<span class="status-badge paid" style="font-size: 10.5px; padding: 2px 7px;">✅ Đã nhận tiền (QR)</span>` :
+                                `<span class="status-badge pending" style="font-size: 10.5px; padding: 2px 7px;">⏳ Chờ nhận tiền (QR)</span>`
+                            ) : `
+                                <span style="font-size: 10.5px; color: var(--text-muted);">COD khi nhận hàng</span>
+                            `}
+                        </div>
+                    </td>
                     <td>
                         <select class="status-select" onchange="updateOrderStatus('${order.orderId}', this.value)">
                             <option value="Chờ xác nhận" ${order.status === 'Chờ xác nhận' ? 'selected' : ''}>⏳ Chờ xác nhận</option>
+                            <option value="Đã thanh toán" ${order.status === 'Đã thanh toán' ? 'selected' : ''}>💵 Đã thanh toán</option>
                             <option value="Đang giao hàng" ${order.status === 'Đang giao hàng' ? 'selected' : ''}>🚚 Đang giao</option>
                             <option value="Đã hoàn thành" ${order.status === 'Đã hoàn thành' ? 'selected' : ''}>✅ Hoàn thành</option>
                             <option value="Đã hủy" ${order.status === 'Đã hủy' ? 'selected' : ''}>❌ Đã hủy</option>
                         </select>
                     </td>
                     <td>
-                        <button onclick="deleteSingleOrder('${order.orderId}')" class="btn-logout" style="color:#ef4444; border-color:#fca5a5; padding: 4px 8px;" title="Xóa đơn hàng">
-                            Xóa
-                        </button>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            ${order.paymentType === 'QR' && !isPaid ? `
+                                <button onclick="adminConfirmPayment('${order.orderId}')" class="btn-confirm-payment" title="Admin xác nhận đã nhận tiền vào tài khoản">
+                                    💵 Đã nhận tiền
+                                </button>
+                            ` : (isPaid ? `
+                                <span style="color: #16a34a; font-weight: 800; font-size: 12px; white-space: nowrap;">✓ Đã nhận tiền</span>
+                            ` : '')}
+                            <button onclick="deleteSingleOrder('${order.orderId}')" class="btn-logout" style="color:#ef4444; border-color:#fca5a5; padding: 4px 8px;" title="Xóa đơn hàng">
+                                Xóa
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -1387,8 +1685,29 @@ function updateOrderStatus(orderId, newStatus) {
     const target = orders.find(o => o.orderId === orderId);
     if (target) {
         target.status = newStatus;
+        if (newStatus === 'Đã thanh toán') {
+            target.paymentStatus = 'Đã nhận tiền';
+        }
         localStorage.setItem('sneakerx_orders', JSON.stringify(orders));
         showToast(`Đã đổi trạng thái đơn #${orderId} sang "${newStatus}"!`);
+
+        // Cập nhật lại giao diện modal đơn hàng thành công nếu đúng đơn đang mở
+        if (currentSuccessOrderId === orderId && newStatus === 'Đã thanh toán') {
+            const qrContentWrapper = document.getElementById('qr-content-wrapper');
+            const qrSuccessWrapper = document.getElementById('qr-success-wrapper');
+            if (qrContentWrapper) qrContentWrapper.style.display = 'none';
+            if (qrSuccessWrapper) qrSuccessWrapper.style.display = 'block';
+            if (orderPaymentWatcher) {
+                clearInterval(orderPaymentWatcher);
+                orderPaymentWatcher = null;
+            }
+        }
+
+        // Cập nhật lại giao diện bảng quản trị nếu đang mở
+        const modalAdmin = document.getElementById('modal-admin-orders');
+        if (modalAdmin && modalAdmin.style.display === 'flex') {
+            openAdminOrdersModal();
+        }
     }
 }
 
@@ -1414,6 +1733,14 @@ function clearAllOrders() {
 
 // 8. CHUYỂN TRANG (Single Page App)
 function showPage(pageId) {
+    // Nếu vào trang checkout mà chưa đăng nhập thì chặn lại và mở modal đăng nhập
+    if (pageId === 'checkout' && !currentUser) {
+        pendingCheckoutAfterAuth = true;
+        showToast('Vui lòng đăng nhập tài khoản khách hàng để vào trang đặt hàng!', 'error');
+        openAuthModal();
+        return;
+    }
+
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     const targetPage = document.getElementById('page-' + pageId);
     if (targetPage) {
